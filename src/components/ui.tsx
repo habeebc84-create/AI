@@ -140,10 +140,3 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
   )
 }
 
-export function DemoBanner() {
-  return (
-    <div className="bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" role="note">
-      Demo Mode — sample data, clearly labelled. No live Supabase project is connected yet. Add credentials later via <span className="font-mono">.env</span> (see Setup docs).
-    </div>
-  )
-}

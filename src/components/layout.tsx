@@ -5,8 +5,8 @@ import {
   Users, Megaphone, Shield, FileText, LogOut, Menu, X, Search, Moon, Sun, GraduationCap,
   ClipboardList, Home, Sparkles, ChevronRight,
 } from 'lucide-react'
-import { useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
-import { DemoBanner, Toaster } from './ui'
+import { useStore, useCurrentUser } from '../lib/store'
+import { Toaster } from './ui'
 import type { Role } from '../lib/types'
 
 // Tab-visibility tracking runs app-wide during an active focus session:
@@ -165,7 +165,6 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
-      {DEMO_MODE && <DemoBanner />}
       <div className="flex">
         <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-200 bg-white transition-transform dark:border-slate-700 dark:bg-navy-900 lg:static lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Main navigation">
           <div className="flex h-16 items-center justify-between px-4"><Logo /><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button></div>
@@ -222,7 +221,6 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   const { dark, toggle } = useTheme()
   return (
     <div className="min-h-screen bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
-      {DEMO_MODE && <DemoBanner />}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-navy-900/90">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <Logo />
