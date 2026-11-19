@@ -228,6 +228,7 @@ export const useStore = create<AppState>()(
         if (!af) return
         const nowIso = new Date().toISOString()
         if (hidden) {
+          if (af.hiddenSince) return // already hidden: two listeners (app shell + focus page) must not double-record
           set({ activeFocus: { ...af, hiddenSince: nowIso }, focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'hidden', at: nowIso }, ...get().focusEvents] })
         } else if (af.hiddenSince) {
           const hiddenMs = Date.now() - new Date(af.hiddenSince).getTime()

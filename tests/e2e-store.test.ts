@@ -30,6 +30,8 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
     s.startFocus('a_hist', 'French Revolution notes', 'pomodoro', 1500)
     expect(useStore.getState().activeFocus).not.toBeNull()
     s.recordVisibility(true)
+    s.recordVisibility(true) // second listener firing must not double-record the hidden event
+    expect(useStore.getState().focusEvents.filter((e) => e.type === 'hidden').length).toBe(1)
     s.recordVisibility(false)
     expect(useStore.getState().activeFocus?.visibilityCount).toBe(1)
     s.finishFocus(4, 'Good session.')
