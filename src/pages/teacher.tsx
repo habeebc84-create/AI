@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { useStore, useCurrentUser } from '../lib/store'
 import { Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
 import { PageHeader } from './student'
-import { completionRate, fmtDateTime, validateUploadFile } from '../lib/utils'
+import { completionRate, fmtDateTime, validateUploadFile, dataUrlToBlob, type StoredFile } from '../lib/utils'
 import type { Assignment } from '../lib/types'
 
 export function TeacherDashboard() {
@@ -67,7 +67,7 @@ export function TeacherClasses() {
   return (
     <div>
       <PageHeader title="My Classes" sub="Classes you teach and their enrolled students." />
-      {mine.length === 0 ? <EmptyState title="No classes yet" body="Classes are created by an administrator, or seeded in Demo Mode." /> : (
+      {mine.length === 0 ? <EmptyState title="No classes yet" body="Classes are created by an administrator, or included as sample data." /> : (
         <div className="grid gap-4 md:grid-cols-2">{mine.map((c) => (
           <Card key={c.id} className="p-5">
             <h3 className="font-display text-lg font-bold">{c.name}</h3>
@@ -255,9 +255,14 @@ export function TeacherSubmissionDetail() {
   const a = s ? assignments.find((x) => x.id === s.assignmentId && x.teacherId === user.id) : undefined
   if (!s || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<Link to="/teacher/submissions"><Button>Back</Button></Link>} />
   const st = users.find((u) => u.id === s.studentId)
-  const downloadFile = (f: { name: string }) => {
-    const blob = new Blob([`Demo file: ${f.name}\nSubmitted by ${st?.name} for ${a.title}.\n\nIn Demo Mode, uploaded file contents are represented by their name, size and type; the real file bytes are stored in Supabase Storage once connected.`], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = f.name; el.click(); URL.revokeObjectURL(url)
+  const downloadFile = (f: StoredFile) => {
+    // Files uploaded since local storage was introduced carry their real
+    // contents (stored on this computer); older or oversized files are
+    // metadata-only, and the download says so plainly.
+    const blob = f.dataUrl
+      ? dataUrlToBlob(f.dataUrl)
+      : new Blob([`File: ${f.name}\nSubmitted by ${st?.name} for ${a.title}.\n\nThis file's contents were not stored on this computer (over the 2 MB local limit, or a sample file). Only its name, size and type are kept.`], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = f.dataUrl ? f.name : f.name.replace(/\.[^.]+$/, '') + '.txt'; el.click(); URL.revokeObjectURL(url)
   }
   return (
     <div>
@@ -270,7 +275,7 @@ export function TeacherSubmissionDetail() {
           {s.files.length === 0 ? <p className="mt-1 text-sm text-slate-500">No files attached.</p> : s.files.map((f) => (
             <button key={f.name} onClick={() => downloadFile(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-royal-500 dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
           ))}
-          <p className="mt-4 text-xs text-slate-500">File downloads are validated: only the owning teacher and the submitting student can access a submission. (Demo: metadata download; real bytes live in Supabase Storage once connected.)</p>
+          <p className="mt-4 text-xs text-slate-500">File downloads are validated: only the owning teacher and the submitting student can access a submission. Files are stored only on this computer — downloaded files are the real uploaded bytes when stored, otherwise a note saying contents were not stored.</p>
         </Card>
         <Card className="p-6">
           <h2 className="font-display font-bold">Grade & feedback</h2>
@@ -350,7 +355,7 @@ export function TeacherProfile() {
   const save = (e: FormEvent) => { e.preventDefault(); updateProfile(user.id, { name, department: dept }); toast('Profile updated.') }
   return (
     <div>
-      <PageHeader title="My Profile" sub="Teacher profile, as stored in Demo Mode." />
+      <PageHeader title="My Profile" sub="Teacher profile, stored only on this computer." />
       <Card className="max-w-lg p-6">
         <p className="font-display text-lg font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email} · Teacher · {user.department}</p>
         <form onSubmit={save} className="mt-5 space-y-4">

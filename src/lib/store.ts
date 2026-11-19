@@ -7,9 +7,11 @@ import type {
 } from './types'
 import { buildSeed, DEMO_PASSWORD, type SeedData } from './seed'
 import { generateTutorReply } from './ai'
-import { uid } from './utils'
+import { uid, storedFileBytes, LOCAL_FILE_BUDGET_BYTES } from './utils'
 
-export const DEMO_MODE = true // No Supabase credentials configured — see docs/SETUP.md to switch to Supabase
+// Local-only storage: all data lives in this computer's browser
+// (localStorage). There is no server or cloud sync by design.
+export const DEMO_MODE = true
 
 export interface ActiveFocus {
   sessionId: string
@@ -84,7 +86,7 @@ export const useStore = create<AppState>()(
       ...seed,
       currentUserId: null,
       aiConfig: initialAiConfig,
-      auditLogs: [{ id: uid('al'), actorId: 'system', action: 'demo.seed', detail: 'Demo data loaded (labelled sample data).', at: new Date().toISOString() }],
+      auditLogs: [{ id: uid('al'), actorId: 'system', action: 'demo.seed', detail: 'Sample data loaded — stored only on this computer.', at: new Date().toISOString() }],
       focusEvents: [],
       activeFocus: null,
       focusPrefs: { pomodoroMin: 25, shortBreakMin: 5, longBreakMin: 15 },
@@ -93,10 +95,10 @@ export const useStore = create<AppState>()(
 
       login: (email, password) => {
         const user = get().users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
-        if (!user) return { ok: false, error: 'No account with that email in Demo Mode. Try a demo account or register.' }
-        if (user.password !== password) return { ok: false, error: 'Incorrect password. Demo accounts use “demo1234”.' }
+        if (!user) return { ok: false, error: 'No account with that email on this computer. Try a sample account or register.' }
+        if (user.password !== password) return { ok: false, error: 'Incorrect password. Sample accounts use “demo1234”.' }
         set({ currentUserId: user.id })
-        get().audit(user.id, 'auth.login', `${user.name} signed in (Demo Mode).`)
+        get().audit(user.id, 'auth.login', `${user.name} signed in.`)
         return { ok: true }
       },
       register: (name, email, password, grade, school) => {
@@ -104,7 +106,7 @@ export const useStore = create<AppState>()(
         if (password.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' }
         const user: User = { id: uid('u'), name, email: email.trim(), password, role: 'student', school: school || 'Sunrise Public School', grade, classId: 'c_10a', subjects: ['Mathematics', 'Science', 'English'], createdAt: new Date().toISOString() }
         set((s) => ({ users: [...s.users, user], currentUserId: user.id }))
-        get().audit(user.id, 'auth.register', `${name} registered as a student (Demo Mode).`)
+        get().audit(user.id, 'auth.register', `${name} registered as a student.`)
         return { ok: true }
       },
       logout: () => set({ currentUserId: null }),
@@ -150,6 +152,14 @@ export const useStore = create<AppState>()(
         const late = new Date() > new Date(a.dueAt)
         if (late && a.latePolicy === 'reject') return { ok: false, error: 'The deadline has passed and late submissions are not accepted for this assignment.' }
         const existing = get().submissions.find((s) => s.assignmentId === assignmentId && s.studentId === studentId)
+        // Local storage budget: file contents live on this computer, so the
+        // total stored bytes must stay inside the browser's quota.
+        const alreadyStored = get().submissions
+          .filter((s) => s.id !== existing?.id)
+          .reduce((n, s) => n + storedFileBytes(s.files), 0)
+        if (alreadyStored + storedFileBytes(files) > LOCAL_FILE_BUDGET_BYTES) {
+          return { ok: false, error: 'Not enough local storage on this computer for these files. Remove a large attachment or delete an older submission file first.' }
+        }
         const nowIso = new Date().toISOString()
         if (existing) {
           set((s) => ({ submissions: s.submissions.map((x) => (x.id === existing.id ? { ...x, text, files, status: late ? 'late' : 'submitted', submittedAt: nowIso, isLate: late, returnedForRevision: false, updatedAt: nowIso } : x)) }))

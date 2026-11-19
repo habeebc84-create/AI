@@ -97,4 +97,18 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
     const created = useStore.getState().users.find((u) => u.email === 'eve@demo.focused.ai')!
     expect(created.role).toBe('student') // registration can only ever create students
   })
+
+  it('Local-only storage: uploaded file bytes persist on this computer; over-budget submit is rejected', () => {
+    const s = useStore.getState()
+    s.login('aarav@demo.focused.ai', 'demo1234')
+    const dataUrl = 'data:text/plain;base64,' + btoa('Photosynthesis Lab Report - Aarav')
+    const r = s.submitAssignment('a_essay', 'u_aarav', 'See attached report.', [{ name: 'report.txt', size: 32, type: 'text/plain', dataUrl }])
+    expect(r.ok).toBe(true)
+    const sub = useStore.getState().submissions.find((x) => x.assignmentId === 'a_essay' && x.studentId === 'u_aarav')!
+    expect(sub.files[0].dataUrl).toBe(dataUrl) // teacher downloads these real bytes
+    const huge = 'data:text/plain;base64,' + 'A'.repeat(6_000_000) // ~4.5 MB decoded, over the 4 MB budget
+    const over = s.submitAssignment('a_essay', 'u_aarav', 'Too big.', [{ name: 'huge.txt', size: 4_500_000, type: 'text/plain', dataUrl: huge }])
+    expect(over.ok).toBe(false)
+    expect(over.error).toMatch(/local storage/i)
+  })
 })

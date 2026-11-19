@@ -14,10 +14,10 @@ parent visibility, all scoped per institution with Row Level Security.
 | Edge Functions (5) | ✅ Written — `supabase/functions/*` |
 | Docs | ✅ Written — `docs/` |
 | RLS negative tests | ✅ Written, **not yet run** — `tests/security/rls-negative-tests.sql` |
-| Live Supabase project | ❌ **Not connected** — nothing deployed or tested against a hosted DB |
-| Runnable today | ✅ **Demo Mode** (localStorage, no backend needed) |
+| Live Supabase project | ❌ **Not connected — by design.** Storage is local-only (see below); the Supabase files are kept as an optional future, nothing is deployed or tested against a hosted DB |
+| Runnable today | ✅ **Local-only storage** (localStorage on this computer, no backend needed) |
 
-## Quick start (Demo Mode — no setup)
+## Quick start (local-only storage — no setup)
 
 ```bash
 npm install
@@ -51,18 +51,17 @@ npm run build   # production build (must pass before deploying)
 npm test        # frontend test suite (Vitest)
 ```
 
-## Demo vs Real mode
+## Storage: local-only by design
 
-| | Demo Mode | Real Mode |
+All data lives on this computer, in the browser's localStorage — accounts, assignments, submissions (including uploaded file contents up to 2 MB per file, 4 MB total), focus sessions, and messages. Nothing is sent to a server. The Supabase schema, seed, and Edge Functions in `supabase/` are kept as an optional future and are not wired in.
+
+| | Local-only (current) | Supabase (optional future) |
 |---|---|---|
-| Data | localStorage seed | Supabase Postgres (28 tables) |
-| Auth | demo account picker | Supabase Auth (email/password) |
-| AI tutor | scripted demo replies | `ai-tutor` Edge Function + OpenAI / Gemini / Anthropic |
+| Data | localStorage on this computer | Supabase Postgres (28 tables) |
+| Auth | sample account picker | Supabase Auth (email/password) |
+| AI tutor | scripted guided hints | `ai-tutor` Edge Function + OpenAI / Gemini / Anthropic |
 | Notifications | local | `notification-worker` Edge Function (cron) |
 | Requires | nothing | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
-
-If the Supabase env vars are set, the app uses the real client;
-otherwise it falls back to Demo Mode.
 
 ## Architecture
 

@@ -1,7 +1,7 @@
 /**
  * Demo AI tutor — deterministic, guided hints.
- * This is NOT a live AI provider call. When no provider is configured
- * (Demo Mode), the tutor gives step-by-step Socratic hints derived from
+ * This is NOT a live AI provider call. When no provider is configured,
+ * the tutor gives step-by-step Socratic hints derived from
  * the assignment context and the student's question, and says so clearly.
  * With a provider configured, the Edge Function /api/ai-tutor path is used
  * instead (see docs/AI_SETUP.md). It never writes the student's answer.

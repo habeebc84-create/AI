@@ -70,7 +70,7 @@ export function ParentChildren() {
       ))}
       {pending.map((g) => {
         const s = users.find((u) => u.id === g.studentId)
-        return <Card key={g.id} className="mb-3 p-5"><p className="font-semibold">Link request pending: {s?.name}</p><p className="text-sm text-slate-500">Requested {fmtDateTime(g.createdAt)}. In Demo Mode, links are accepted automatically by the school workflow; in production an institution verifies the link first.</p></Card>
+        return <Card key={g.id} className="mb-3 p-5"><p className="font-semibold">Link request pending: {s?.name}</p><p className="text-sm text-slate-500">Requested {fmtDateTime(g.createdAt)}. Links are accepted automatically by the school workflow; an institution verifies the link first in a managed deployment.</p></Card>
       })}
       {children.length === 0 && pending.length === 0 && <EmptyState title="No linked children" body="Guardian links require a secure invitation from the school. Once the school creates one for your email, it will appear here." />}
     </div>

@@ -8,7 +8,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
 import { Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
-import { completionRate, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs } from '../lib/utils'
+import { completionRate, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz } from '../lib/ai'
 import type { Assignment } from '../lib/types'
 
@@ -161,8 +161,9 @@ export function StudentAssignmentDetail() {
   const { assignments, submissions, saveDraft, submitAssignment } = useStore()
   const navigate = useNavigate()
   const [text, setText] = useState('')
-  const [files, setFiles] = useState<{ name: string; size: number; type: string }[]>([])
+  const [files, setFiles] = useState<StoredFile[]>([])
   const [error, setError] = useState('')
+  const [fileNote, setFileNote] = useState('')
   const [saved, setSaved] = useState(false)
   const a = assignments.find((x) => x.id === id)
   const existing = submissions.find((s) => s.assignmentId === id && s.studentId === user.id)
@@ -171,16 +172,31 @@ export function StudentAssignmentDetail() {
   if (a.status !== 'published') return <EmptyState title="Not published yet" body="Your teacher has not published this assignment." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
   const late = new Date() > new Date(a.dueAt)
   const downloadAttachment = (name: string) => {
-    const blob = new Blob([`${a.title}\n${a.subject} · ${a.description}\n\nInstructions:\n${a.instructions}\n\n(Demo attachment — sample file generated from the assignment record.)`], { type: 'text/plain' })
+    const blob = new Blob([`${a.title}\n${a.subject} · ${a.description}\n\nInstructions:\n${a.instructions}\n\n(Sample file generated from the assignment record.)`], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const el = document.createElement('a'); el.href = url; el.download = name.replace(/\.[^.]+$/, '') + '.txt'; el.click(); URL.revokeObjectURL(url)
   }
-  const onFiles = (fl: FileList | null) => {
+  const onFiles = async (fl: FileList | null) => {
     if (!fl) return
+    setError('')
     for (const f of Array.from(fl)) {
       const err = validateUploadFile(f)
       if (err) { setError(err); return }
-      setFiles((prev) => [...prev, { name: f.name, size: f.size, type: f.type }])
+      // File contents are stored on this computer with the submission, so
+      // your teacher downloads the real file. Over the local cap, the file
+      // is listed only and the teacher is told its contents were not stored.
+      if (f.size <= MAX_STORED_FILE_BYTES) {
+        try {
+          const dataUrl = await readFileAsDataUrl(f)
+          setFiles((prev) => [...prev, { name: f.name, size: f.size, type: f.type, dataUrl }])
+        } catch {
+          setError(`Could not read “${f.name}” on this computer.`)
+          return
+        }
+      } else {
+        setFiles((prev) => [...prev, { name: f.name, size: f.size, type: f.type }])
+        setFileNote(`“${f.name}” is listed only — over 2 MB, its contents are not stored on this computer.`)
+      }
     }
   }
   const submit = () => {
@@ -209,8 +225,9 @@ export function StudentAssignmentDetail() {
           <h2 className="font-display font-bold">Your submission</h2>
           <p className="text-sm text-slate-500">Status: {existing?.status ?? 'not started'}{existing?.submittedAt ? ` · submitted ${fmtDateTime(existing.submittedAt)}` : ''}</p>
           <div className="mt-4"><Label>Text response</Label><Textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
-          <div className="mt-4"><Label>Attach files (PDF, DOCX, images, text — max 10 MB each)</Label><Input type="file" multiple onChange={(e) => onFiles(e.target.files)} aria-label="Attach files" /></div>
-          {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name}</span><button onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
+          <div className="mt-4"><Label>Attach files (PDF, DOCX, images, text — max 10 MB each; contents stored on this computer up to 2 MB per file)</Label><Input type="file" multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
+          {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({f.dataUrl ? 'stored on this computer' : 'listed only'})</span></span><button onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
+          {fileNote && <p className="mt-2 text-xs text-slate-500">{fileNote}</p>}
           {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30" role="alert">{error}</p>}
           {saved && <p className="mt-3 text-sm text-emerald-600">Draft saved.</p>}
           <div className="mt-4 flex gap-2">
@@ -380,7 +397,7 @@ export function AiTutor() {
       {!aiConfig.configured && (
         <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" role="note">
           <strong>AI not configured — demo hints.</strong> No AI provider is connected, so the tutor gives deterministic guided hints from assignment context.
-          An administrator can configure a provider in Admin → AI Settings. No data leaves your browser in Demo Mode.
+          An administrator can configure a provider in Admin → AI Settings. No data leaves this computer.
         </p>
       )}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -568,7 +585,7 @@ export function StudentProfile() {
   const save = (e: FormEvent) => { e.preventDefault(); updateProfile(user.id, { name, subjects: subjects.split(',').map((s) => s.trim()).filter(Boolean) }); toast('Profile updated.') }
   return (
     <div>
-      <PageHeader title="My Profile" sub="Your details, as stored in Demo Mode." />
+      <PageHeader title="My Profile" sub="Your details, stored only on this computer." />
       <Card className="max-w-lg p-6">
         <div className="flex items-center gap-4"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-royal-500 text-xl font-bold text-white">{user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span><div><p className="font-display text-lg font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email} · {user.role}</p><p className="text-sm text-slate-500">{user.school} · {user.grade}</p></div></div>
         <form onSubmit={save} className="mt-6 space-y-4">
@@ -602,12 +619,12 @@ export function StudentSettings() {
         </Card>
         <Card className="p-6">
           <h2 className="font-display font-bold">Demo data</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">This deployment runs in Demo Mode with labelled sample data stored in your browser. Resetting restores the original demo data and signs you out.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">All data is stored only on this computer. Resetting restores the original sample data and signs you out.</p>
           {!confirmReset ? <Button className="mt-4" variant="outline" onClick={() => setConfirmReset(true)}>Reset demo data</Button> : (
             <div className="mt-4 flex gap-2"><Button variant="danger" onClick={() => { resetDemo(); navigate('/login'); toast('Demo data reset.') }}>Yes, reset everything</Button><Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button></div>
           )}
           <h3 className="mt-6 font-display font-bold">Account</h3>
-          <p className="mt-1 text-sm text-slate-500">Signed in as {user.email}. In Demo Mode, account deletion removes your local demo record only.</p>
+          <p className="mt-1 text-sm text-slate-500">Signed in as {user.email}. Account deletion removes your record from this computer only.</p>
         </Card>
       </div>
     </div>

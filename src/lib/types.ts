@@ -1,3 +1,5 @@
+import type { StoredFile } from './utils'
+
 export type Role = 'student' | 'teacher' | 'parent' | 'admin'
 
 export interface User {
@@ -50,7 +52,7 @@ export interface Submission {
   assignmentId: string
   studentId: string
   text: string
-  files: { name: string; size: number; type: string }[]
+  files: StoredFile[]
   status: SubmissionStatus
   submittedAt: string | null
   isLate: boolean

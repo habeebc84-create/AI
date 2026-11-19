@@ -67,7 +67,7 @@ export function buildSeed() {
     { id: uid('n'), userId: 'u_aarav', type: 'deadline', title: 'Due tomorrow: French Revolution notes', body: 'Short notes are due tomorrow. Plan a 30-minute session today.', link: '/student/assignments/a_hist', read: true, createdAt: iso(now - 26 * 3600000) },
     { id: uid('n'), userId: 'u_priya', type: 'submission', title: 'New submission from Meera Iyer', body: 'French Revolution notes submitted for review.', link: '/teacher/submissions', read: false, createdAt: iso(now - 2 * 3600000) },
     { id: uid('n'), userId: 'u_rohit', type: 'grade', title: 'Aarav scored 17/20', body: 'Quadratic Equations — Problem Set 4 graded by Ms. Priya Nair.', link: '/parent/progress', read: false, createdAt: iso(now - 20 * 3600000) },
-    { id: uid('n'), userId: 'u_admin', type: 'announcement', title: 'Demo data loaded', body: 'FocusEd AI is running in Demo Mode with labelled sample data.', link: '/admin/dashboard', read: false, createdAt: iso(now - 5 * 3600000) },
+    { id: uid('n'), userId: 'u_admin', type: 'announcement', title: 'Sample data loaded', body: 'FocusEd AI stores its sample data only on this computer — nothing is sent to a server.', link: '/admin/dashboard', read: false, createdAt: iso(now - 5 * 3600000) },
   ]
 
   const announcements: Announcement[] = [

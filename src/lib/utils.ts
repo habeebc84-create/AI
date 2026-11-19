@@ -48,6 +48,49 @@ export const ALLOWED_FILE_TYPES = [
 ]
 export const MAX_FILE_MB = 10
 
+// Local-only storage (this computer, browser localStorage): uploaded file
+// contents are stored as data URLs alongside the submission record. A
+// per-file cap and a total budget keep the store inside the browser's
+// localStorage quota (~5 MB). Files over the cap are still listed, but
+// their contents are not stored — the UI says so plainly.
+export const MAX_STORED_FILE_BYTES = 2 * 1024 * 1024
+export const LOCAL_FILE_BUDGET_BYTES = 4 * 1024 * 1024
+
+export interface StoredFile {
+  name: string
+  size: number
+  type: string
+  /** Base64 data URL of the file contents, stored on this computer. Absent when contents were not stored (over the cap, or a seeded sample file). */
+  dataUrl?: string
+}
+
+/** Approximate stored bytes of data URLs (base64 is ~4/3 of the raw size). */
+export function storedFileBytes(files: { dataUrl?: string }[]): number {
+  return files.reduce((n, f) => {
+    if (!f.dataUrl) return n
+    const body = (f.dataUrl.split(',')[1] ?? '').replace(/=+$/, '')
+    return n + Math.floor(body.length * 0.75)
+  }, 0)
+}
+
+export function readFileAsDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read file.'))
+    reader.onload = () => resolve(String(reader.result))
+    reader.readAsDataURL(file)
+  })
+}
+
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, body] = dataUrl.split(',')
+  const type = /:(.*?);/.exec(header)?.[1] ?? 'application/octet-stream'
+  const binary = atob(body)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type })
+}
+
 export function validateUploadFile(file: { name: string; size: number; type: string }): string | null {
   if (!ALLOWED_FILE_TYPES.includes(file.type)) return `“${file.name}” is not an allowed type. Allowed: PDF, DOCX, images, plain text.`
   if (file.size > MAX_FILE_MB * 1024 * 1024) return `“${file.name}” exceeds the ${MAX_FILE_MB} MB limit.`

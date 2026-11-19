@@ -5,9 +5,9 @@
 - Supabase CLI (`npm i -g supabase`) and Docker (for local Supabase only)
 - A Supabase account (for the hosted path only)
 
-## 1. Run the frontend in Demo Mode (no Supabase needed)
+## 1. Run the frontend (local-only storage, no setup)
 
-This is the runnable path today — no live Supabase project is connected yet.
+This is the runnable path — all data is stored only on this computer, in the browser's localStorage. No Supabase project is needed.
 
 ```bash
 cd focused-ai

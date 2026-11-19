@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, BookOpen, BarChart3, Bot, Shield, Settings, FileText, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-react'
+import { Users, BookOpen, BarChart3, Bot, Shield, Settings, FileText, CheckCircle2, KeyRound } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
 import { Button, Card, Input, Label, Select, Badge, EmptyState, toast } from '../components/ui'
 import { PageHeader } from './student'
 import { completionRate, fmtDateTime } from '../lib/utils'
-import { isSupabaseConfigured, SUPABASE_SETUP_STEPS } from '../lib/supabase'
 import type { AiProviderConfig } from '../lib/types'
 
 export function AdminDashboard() {
@@ -14,7 +13,7 @@ export function AdminDashboard() {
   const byRole = (r: string) => users.filter((u) => u.role === r).length
   return (
     <div>
-      <PageHeader title="Administrator Dashboard" sub="System-wide overview for Sunrise Public School (Demo Mode — sample data)." />
+      <PageHeader title="Administrator Dashboard" sub="System-wide overview for Sunrise Public School (sample data, stored on this computer)." />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Users', value: String(users.length), sub: `${byRole('student')} students · ${byRole('teacher')} teachers · ${byRole('parent')} parents`, icon: Users },
@@ -29,8 +28,8 @@ export function AdminDashboard() {
         <Card className="p-5">
           <h2 className="font-display font-bold">System status</h2>
           <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Demo Mode running — local data layer healthy</li>
-            <li className="flex items-center gap-2">{isSupabaseConfigured ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <AlertTriangle className="h-4 w-4 text-amber-500" />} Supabase: {isSupabaseConfigured ? 'connected' : 'not configured — see Setup docs'}</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Local storage running — all data stays on this computer</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> File storage: up to 2 MB per file, 4 MB total, on this computer</li>
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {submissions.filter((s) => s.submittedAt).length} submissions stored · {focusSessions.length} focus sessions stored</li>
           </ul>
           <Link to="/admin/ai-settings" className="mt-4 inline-block text-sm font-semibold text-royal-500 hover:underline">Configure AI provider →</Link>
@@ -55,7 +54,7 @@ export function AdminUsers() {
         <Card key={u.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
           <div><p className="font-semibold">{u.name}</p><p className="text-sm text-slate-500">{u.email} · {u.school ?? ''} {u.grade ? `· ${u.grade}` : ''}</p></div>
           <div className="flex items-center gap-2"><Badge color={u.role === 'admin' ? 'rose' : u.role === 'teacher' ? 'indigo' : u.role === 'parent' ? 'cyan' : 'slate'}>{u.role}</Badge>
-            {u.role === 'student' && <Button size="sm" variant="outline" onClick={() => { updateProfile(u.id, { role: 'teacher' }); toast(`${u.name} promoted to teacher (Demo Mode). In production this requires an invitation and audit entry.`) }}>Make teacher</Button>}
+            {u.role === 'student' && <Button size="sm" variant="outline" onClick={() => { updateProfile(u.id, { role: 'teacher' }); toast(`${u.name} promoted to teacher. In a managed deployment this requires an invitation and audit entry.`) }}>Make teacher</Button>}
           </div>
         </Card>
       ))}</div>
@@ -136,7 +135,7 @@ export function AdminAiSettings() {
             <div><Label>Provider</Label><Select value={provider} onChange={(e) => setProvider(e.target.value as AiProviderConfig['provider'])}><option value="none">None — demo hints</option><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic</option><option value="openrouter">OpenRouter</option><option value="groq">Groq</option><option value="custom">Custom OpenAI-compatible</option></Select></div>
             <div><Label>Model</Label><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. gpt-4o-mini" /></div>
             <div><Label>Endpoint (custom providers only)</Label><Input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://api.example.com/v1" /></div>
-            <div><Label><KeyRound className="mr-1 inline h-4 w-4" /> API key — server-side only</Label><Input type="password" value={keyNote} onChange={(e) => setKeyNote(e.target.value)} placeholder="Paste the key here — it is sent to the Edge Function secret store, never saved in the browser" autoComplete="off" /><p className="mt-1 text-xs text-slate-500">Demo Mode: the key field is accepted as a configuration signal only. With Supabase connected, set the key with <code>supabase secrets set</code> instead — see docs/AI_SETUP.md.</p></div>
+            <div><Label><KeyRound className="mr-1 inline h-4 w-4" /> API key — server-side only</Label><Input type="password" value={keyNote} onChange={(e) => setKeyNote(e.target.value)} placeholder="Paste the key here — it is kept on this computer only, never sent anywhere" autoComplete="off" /><p className="mt-1 text-xs text-slate-500">Local storage only: the key is kept as a configuration note on this computer. The AI tutor gives guided hints until a provider is connected — see docs/AI_SETUP.md.</p></div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Max output tokens</Label><Input type="number" value={maxTokens} onChange={(e) => setMaxTokens(Number(e.target.value))} /></div>
               <div><Label>Timeout (ms)</Label><Input type="number" value={timeoutMs} onChange={(e) => setTimeoutMs(Number(e.target.value))} /></div>
@@ -193,7 +192,7 @@ export function AdminSystemSettings() {
   const [name, setName] = useState('Sunrise Public School')
   const [retention, setRetention] = useState('365')
   const [maxUpload, setMaxUpload] = useState('10')
-  const save = (e: FormEvent) => { e.preventDefault(); toast('System settings saved (Demo Mode).') }
+  const save = (e: FormEvent) => { e.preventDefault(); toast('System settings saved on this computer.') }
   return (
     <div>
       <PageHeader title="System Settings" sub="Institution configuration, retention and upload limits." />
@@ -204,11 +203,7 @@ export function AdminSystemSettings() {
           <div><Label>Max upload size (MB)</Label><Input type="number" value={maxUpload} onChange={(e) => setMaxUpload(e.target.value)} /></div>
           <Button type="submit">Save settings</Button>
         </form>
-        <h3 className="mt-6 font-display font-bold">Connect Supabase later</h3>
-        <ol className="mt-2 list-decimal space-y-1 pl-6 text-sm text-slate-600 dark:text-slate-300">
-          {SUPABASE_SETUP_STEPS.map((s) => <li key={s}>{s}</li>)}
-        </ol>
-        <p className="mt-3 text-sm">Status: {isSupabaseConfigured ? 'Supabase is configured.' : 'Supabase is not configured — the app is running in Demo Mode.'}</p>
+        <p className="mt-3 text-sm">Status: All data is stored only on this computer (local storage). No server or cloud sync.</p>
       </Card>
     </div>
   )

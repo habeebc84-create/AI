@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { completionRate, formatDuration, formatMinutes, activeElapsedMs, validateUploadFile, deriveSubmissionStatus, buildStudyPlan } from '../src/lib/utils'
+import { completionRate, formatDuration, formatMinutes, activeElapsedMs, validateUploadFile, deriveSubmissionStatus, buildStudyPlan, readFileAsDataUrl, storedFileBytes, dataUrlToBlob, MAX_STORED_FILE_BYTES } from '../src/lib/utils'
 import { generateTutorReply, generateQuiz } from '../src/lib/ai'
 
 describe('completionRate', () => {
@@ -74,5 +74,31 @@ describe('AI tutor demo hints', () => {
   })
   it('generates practice questions', () => {
     expect(generateQuiz('Mathematics', 'Quadratic Equations')).toHaveLength(3)
+  })
+})
+
+describe('Local-only file storage (this computer)', () => {
+  it('reads a file into a data URL and back to identical bytes', async () => {
+    const text = 'Photosynthesis Lab Report - Aarav'
+    const dataUrl = await readFileAsDataUrl(new Blob([text], { type: 'text/plain' }))
+    expect(dataUrl).toMatch(/^data:text\/plain;base64,/)
+    const back = dataUrlToBlob(dataUrl)
+    expect(back.type).toBe('text/plain')
+    expect(back.size).toBe(new Blob([text]).size)
+    const roundTripped = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('read failed'))
+      reader.onload = () => resolve(String(reader.result))
+      reader.readAsText(back)
+    })
+    expect(roundTripped).toBe(text)
+  })
+  it('counts stored bytes from data URLs and ignores metadata-only files', () => {
+    const small = 'data:text/plain;base64,' + btoa('hello') // 5 bytes
+    expect(storedFileBytes([{ name: 'a.txt', size: 5, type: 'text/plain', dataUrl: small }])).toBe(5)
+    expect(storedFileBytes([{ name: 'b.txt', size: 5, type: 'text/plain' }])).toBe(0)
+  })
+  it('per-file cap is 2 MB', () => {
+    expect(MAX_STORED_FILE_BYTES).toBe(2 * 1024 * 1024)
   })
 })
