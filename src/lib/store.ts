@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type {
   AiConversation, AiProviderConfig, Announcement, AppNotification, Assignment,
   AuditLog, ClassRoom, FocusEvent, FocusSession, GuardianLink, StudyPlan,
@@ -78,6 +78,37 @@ interface AppState extends SeedData {
 const seed = buildSeed()
 const initialAiConfig: AiProviderConfig = {
   provider: 'none', model: '', endpoint: '', timeoutMs: 30000, maxTokens: 1024, temperature: 0.7, dailyLimit: 100, configured: false,
+}
+
+// Local storage that never crashes the app: a corrupt or truncated saved
+// state (e.g. a failed write when the browser quota filled up) is ignored
+// and the app starts from fresh seed data instead of a blank page. A full
+// quota likewise keeps the session working in memory instead of throwing.
+const safeLocalStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      const raw = localStorage.getItem(name)
+      if (!raw) return null
+      JSON.parse(raw) // validate; corrupt JSON is treated as "no saved state"
+      return raw
+    } catch {
+      return null
+    }
+  },
+  setItem: (name: string, value: string) => {
+    try {
+      localStorage.setItem(name, value)
+    } catch {
+      // Quota full: the in-memory state keeps working for this session.
+    }
+  },
+  removeItem: (name: string) => {
+    try {
+      localStorage.removeItem(name)
+    } catch {
+      // ignore
+    }
+  },
 }
 
 export const useStore = create<AppState>()(
@@ -306,6 +337,7 @@ export const useStore = create<AppState>()(
     {
       name: 'focused-ai-demo-v1',
       version: 1,
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (s) => ({
         users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
         focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
