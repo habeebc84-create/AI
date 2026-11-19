@@ -1,0 +1,49 @@
+# FocusEd AI — Supabase project config
+# supabase/config.toml
+# Minimal local config. No live Supabase project is connected yet.
+# Start local dev with: supabase start  (requires Docker)
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[auth]
+enabled = true
+port = 9999
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/**"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_confirmations = false
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[functions.ai-tutor]
+verify_jwt = true
+
+[functions.ai-admin-config]
+verify_jwt = true
+
+[functions.assignment-actions]
+verify_jwt = true
+
+[functions.guardian-invitations]
+verify_jwt = true
+
+# Cron-invoked: authenticated with CRON_SECRET / service-role key, not a user JWT.
+[functions.notification-worker]
+verify_jwt = false
