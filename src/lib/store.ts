@@ -338,6 +338,16 @@ export const useStore = create<AppState>()(
       name: 'focused-ai-demo-v1',
       version: 1,
       storage: createJSONStorage(() => safeLocalStorage),
+      // A focus session left running when the browser closed shows up as a
+      // stale paused timer (00:00 against a planned session) on the next
+      // visit. Drop sessions started more than 2 hours ago; finished
+      // sessions are kept separately and are never touched.
+      onRehydrateStorage: () => (state) => {
+        const af = state?.activeFocus
+        if (af && isStaleFocusSession(af.startedAt)) {
+          useStore.setState({ activeFocus: null })
+        }
+      },
       partialize: (s) => ({
         users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
         focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
@@ -348,6 +358,11 @@ export const useStore = create<AppState>()(
     },
   ),
 )
+
+/** A focus session started more than 2 hours ago is abandoned, not paused. */
+export function isStaleFocusSession(startedAt: string, now = Date.now()): boolean {
+  return now - new Date(startedAt).getTime() > 2 * 3600 * 1000
+}
 
 export const useCurrentUser = (): User | null => {
   const { users, currentUserId } = useStore()

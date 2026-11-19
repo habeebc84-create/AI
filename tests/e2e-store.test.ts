@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useStore } from '../src/lib/store'
+import { useStore, isStaleFocusSession } from '../src/lib/store'
 
 beforeEach(() => { useStore.getState().resetDemo() })
 
@@ -110,5 +110,11 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
     const over = s.submitAssignment('a_essay', 'u_aarav', 'Too big.', [{ name: 'huge.txt', size: 4_500_000, type: 'text/plain', dataUrl: huge }])
     expect(over.ok).toBe(false)
     expect(over.error).toMatch(/local storage/i)
+  })
+
+  it('Stale focus sessions count as abandoned, recent ones do not', () => {
+    const now = Date.now()
+    expect(isStaleFocusSession(new Date(now - 3 * 3600 * 1000).toISOString(), now)).toBe(true)
+    expect(isStaleFocusSession(new Date(now - 30 * 60 * 1000).toISOString(), now)).toBe(false)
   })
 })

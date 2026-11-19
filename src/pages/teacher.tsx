@@ -38,7 +38,7 @@ export function TeacherDashboard() {
         <Card className="p-5">
           <h2 className="font-display text-lg font-bold">Submissions per assignment</h2>
           {trend.length === 0 ? <p className="mt-2 text-sm text-slate-500">No published assignments yet.</p> : (
-            <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="submitted" fill="#6366F1" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div>
+            <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis /><Tooltip /><Bar dataKey="submitted" fill="#6366F1" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div>
           )}
         </Card>
         <Card className="p-5">
@@ -235,7 +235,7 @@ export function TeacherSubmissions() {
           return (
             <Card key={s.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div><p className="font-display font-bold">{st?.name} — {a?.title}</p><p className="text-sm text-slate-500">Submitted {s.submittedAt ? fmtDateTime(s.submittedAt) : ''}{s.isLate ? ' · late' : ''} · {s.files.length} file{s.files.length === 1 ? '' : 's'}</p></div>
-              <div className="flex items-center gap-2">{statusBadge(s.status)}{s.grade !== null ? <Badge color="emerald">{s.grade}/{a?.maxMarks}</Badge> : <Link to={`/teacher/submissions/${s.id}`}><Button size="sm">Review</Button></Link>}</div>
+              <div className="flex items-center gap-2">{statusBadge(s.status)}{s.grade !== null && <Badge color="emerald">{s.grade}/{a?.maxMarks}</Badge>}<Link to={`/teacher/submissions/${s.id}`}><Button size="sm">Review</Button></Link></div>
             </Card>
           )
         })}</div>
@@ -312,7 +312,7 @@ export function TeacherAnalytics() {
         <Card className="p-5"><p className="text-sm text-slate-500">Grading workload</p><p className="mt-1 font-display text-3xl font-extrabold">{subs.filter((s) => s.grade === null).length}</p><p className="text-xs text-slate-500">Submissions awaiting a grade</p></Card>
       </div>
       <Card className="mt-4 p-5"><h2 className="font-display font-bold">Submission rate by assignment</h2>
-        <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} name="Submission %" /><Bar dataKey="onTime" fill="#10B981" radius={[6, 6, 0, 0]} name="On-time %" /></BarChart></ResponsiveContainer></div>
+        <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} name="Submission %" /><Bar dataKey="onTime" fill="#10B981" radius={[6, 6, 0, 0]} name="On-time %" /></BarChart></ResponsiveContainer></div>
       </Card>
     </div>
   )

@@ -11,12 +11,13 @@ import type { AiProviderConfig } from '../lib/types'
 export function AdminDashboard() {
   const { users, classes, assignments, submissions, focusSessions } = useStore()
   const byRole = (r: string) => users.filter((u) => u.role === r).length
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
   return (
     <div>
       <PageHeader title="Administrator Dashboard" sub="System-wide overview for Sunrise Public School (sample data, stored on this computer)." />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Users', value: String(users.length), sub: `${byRole('student')} students · ${byRole('teacher')} teachers · ${byRole('parent')} parents`, icon: Users },
+          { label: 'Users', value: String(users.length), sub: `${plural(byRole('student'), 'student')} · ${plural(byRole('teacher'), 'teacher')} · ${plural(byRole('parent'), 'parent')} · ${plural(byRole('admin'), 'admin')}`, icon: Users },
           { label: 'Classes', value: String(classes.length), sub: 'Across all grades', icon: BookOpen },
           { label: 'Assignments', value: String(assignments.length), sub: `${assignments.filter((a) => a.status === 'published').length} published`, icon: FileText },
           { label: 'Focus sessions', value: String(focusSessions.length), sub: 'Completed sessions (demo)', icon: BarChart3 },
