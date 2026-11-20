@@ -60,8 +60,8 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
 export function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-navy-800 dark:text-white ${props.className ?? ''}`}>{children}</select>
 }
-export function Label({ children }: { children: ReactNode }) {
-  return <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">{children}</label>
+export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
+  return <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">{children}</label>
 }
 
 const badgeColors: Record<string, string> = {

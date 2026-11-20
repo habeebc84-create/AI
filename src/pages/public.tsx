@@ -214,21 +214,25 @@ export function About() {
 }
 
 export function Contact() {
-  const [sent, setSent] = useState(false)
-  const submit = (e: FormEvent) => { e.preventDefault(); setSent(true); toast('Message received — thank you. (Stored only on this computer, no email sent.)') }
+  const [message, setMessage] = useState('')
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fields = new FormData(e.currentTarget)
+    setMessage(`From: ${fields.get('name')} <${fields.get('email')}>\n\n${fields.get('message')}`)
+  }
   return (
     <PublicLayout>
       <div className="mx-auto max-w-2xl px-4 py-14">
         <h1 className="font-display text-4xl font-extrabold">Contact</h1>
-        <p className="mt-2 text-slate-600 dark:text-slate-300">Questions about the capstone project or the platform? Send a message — it is stored only on this computer and no email is sent.</p>
-        {sent ? (
-          <Card className="mt-8 p-6"><p className="flex items-center gap-2 font-semibold text-emerald-600"><CheckCircle2 className="h-5 w-5" /> Message received</p><p className="mt-2 text-sm text-slate-600">Thank you — we will get back to you. (No email was actually sent — messages stay on this computer.)</p></Card>
+        <p className="mt-2 text-slate-600 dark:text-slate-300">Prepare a message to share with your school. This demo lets you download a copy; it does not send email.</p>
+        {message ? (
+          <Card className="mt-8 p-6"><p className="flex items-center gap-2 font-semibold text-emerald-600"><CheckCircle2 className="h-5 w-5" /> Message ready</p><p className="mt-2 text-sm text-slate-600"><a download="focused-ai-message.txt" href={`data:text/plain;charset=utf-8,${encodeURIComponent(message)}`} className="text-royal-500 underline">Download your message</a> and send it using your own email app.</p></Card>
         ) : (
           <form onSubmit={submit} className="mt-8 space-y-4">
-            <div><Label>Name</Label><Input required placeholder="Your name" /></div>
-            <div><Label>Email</Label><Input required type="email" placeholder="you@example.com" /></div>
-            <div><Label>Message</Label><Textarea required rows={5} placeholder="How can we help?" /></div>
-            <Button type="submit">Send message</Button>
+            <div><Label htmlFor="contact-name">Name</Label><Input id="contact-name" name="name" required placeholder="Your name" /></div>
+            <div><Label htmlFor="contact-email">Email</Label><Input id="contact-email" name="email" required type="email" placeholder="you@example.com" /></div>
+            <div><Label htmlFor="contact-message">Message</Label><Textarea id="contact-message" name="message" required rows={5} placeholder="How can we help?" /></div>
+            <Button type="submit">Prepare message</Button>
           </form>
         )}
       </div>
@@ -310,8 +314,8 @@ export function Login() {
         <h1 className="font-display text-3xl font-extrabold">Welcome back</h1>
         <p className="mt-1 text-slate-500">Log in to your FocusEd AI workspace.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div><Label>Email</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
-          <div><Label>Password</Label><Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" /></div>
+          <div><Label htmlFor="login-email">Email</Label><Input id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
+          <div><Label htmlFor="login-password">Password</Label><Input id="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" /></div>
           {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">{error}</p>}
           <Button type="submit" className="w-full" size="lg">Log in</Button>
         </form>
@@ -344,11 +348,11 @@ export function Register() {
         <h1 className="font-display text-3xl font-extrabold">Create your student account</h1>
         <p className="mt-1 text-sm text-slate-500">Students register here. Teacher, parent and admin accounts are created by invitation only — this keeps privileged roles secure.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div><Label>Full name</Label><Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Aarav Sharma" autoComplete="name" /></div>
-          <div><Label>Email</Label><Input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
-          <div><Label>Password (min 6 characters)</Label><Input required type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
-          <div><Label>Class / grade</Label><Input required value={grade} onChange={(e) => setGrade(e.target.value)} /></div>
-          <div><Label>School</Label><Input value={school} onChange={(e) => setSchool(e.target.value)} /></div>
+          <div><Label htmlFor="register-full">Full name</Label><Input id="register-full" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Aarav Sharma" autoComplete="name" /></div>
+          <div><Label htmlFor="register-email">Email</Label><Input id="register-email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
+          <div><Label htmlFor="register-password">Password (min 6 characters)</Label><Input id="register-password" required type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
+          <div><Label htmlFor="register-class">Class / grade</Label><Input id="register-class" required value={grade} onChange={(e) => setGrade(e.target.value)} /></div>
+          <div><Label htmlFor="register-school">School</Label><Input id="register-school" value={school} onChange={(e) => setSchool(e.target.value)} /></div>
           {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">{error}</p>}
           <Button type="submit" className="w-full" size="lg">Create account</Button>
         </form>
@@ -359,24 +363,16 @@ export function Register() {
 }
 
 export function ForgotPassword() {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const submit = (e: FormEvent) => { e.preventDefault(); setSent(true) }
   return (
     <PublicLayout>
       <div className="mx-auto max-w-md px-4 py-14">
-        <h1 className="font-display text-3xl font-extrabold">Reset your password</h1>
-        {sent ? (
-          <Card className="mt-6 p-6"><p className="flex items-center gap-2 font-semibold text-emerald-600"><CheckCircle2 className="h-5 w-5" /> Check your inbox</p>
-            <p className="mt-2 text-sm text-slate-600">If an account exists for {email}, a reset link has been sent. No email is actually sent — use a sample account (password <span className="font-mono">demo1234</span>) or register a new account.</p>
-            <Link to="/login" className="mt-4 inline-block text-royal-500 hover:underline">Back to login</Link></Card>
-        ) : (
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <p className="text-sm text-slate-500">Enter the email you registered with and we will send a secure reset link.</p>
-            <div><Label>Email</Label><Input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
-            <Button type="submit" className="w-full" size="lg">Send reset link</Button>
-          </form>
-        )}
+        <h1 className="font-display text-3xl font-extrabold">Password help</h1>
+        <Card className="mt-6 space-y-4 p-6">
+          <p>This demo stores accounts in your browser and cannot email a reset link.</p>
+          <p>For a sample account, choose your role on the login page. The sample password is <code>{DEMO_PASSWORD}</code>.</p>
+          <Link to="/login" className="block text-royal-500 underline">Back to login</Link>
+          <Link to="/register" className="block text-royal-500 underline">Create a new student account</Link>
+        </Card>
       </div>
     </PublicLayout>
   )

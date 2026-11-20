@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useCurrentUser } from './lib/store'
-import { AppShell } from './components/layout'
+import { AppShell, useFocusVisibility } from './components/layout'
 import { Landing, Features, HowItWorks, About, Contact, Privacy, Terms, Login, Register, ForgotPassword, NotFound } from './pages/public'
 import {
   StudentDashboard, StudentAssignments, StudentAssignmentDetail, StudentSubmissions,
@@ -39,6 +39,7 @@ function RoleHome() {
 }
 
 export default function App() {
+  useFocusVisibility()
   return (
     <BrowserRouter>
       <Routes>
