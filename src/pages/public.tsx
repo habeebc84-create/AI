@@ -46,6 +46,31 @@ function HeroPreview() {
   )
 }
 
+function CocoDatasetGuide() {
+  return (
+    <section id="ms-coco" aria-labelledby="coco-title" className="mx-auto max-w-7xl px-4 pb-16">
+      <Card className="grid overflow-hidden md:grid-cols-2">
+        <div className="bg-navy-950 p-6 text-white sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-300">Study resource · Computer vision</p>
+          <h2 id="coco-title" className="mt-3 font-display text-3xl font-extrabold">MS COCO: Common Objects in Context</h2>
+          <p className="mt-3 text-slate-300">A starting point for object detection. In a street scene, a bicycle might be partly hidden behind a car. COCO shows objects in scenes like these, not just in isolation.</p>
+          <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-4 border-t border-slate-700 pt-4">
+            {[['Object classes', '80'], ['Images', '≈330,000'], ['Labeled images', '200,000+']].map(([label, value]) => (
+              <div key={label}><dt className="text-sm text-slate-300">{label}</dt><dd className="font-display text-xl font-bold">{value}</dd></div>
+            ))}
+          </dl>
+        </div>
+        <div className="space-y-4 p-6 sm:p-8">
+          <p><strong>What’s annotated?</strong> Bounding boxes locate objects, instance masks trace individual objects, keypoints mark human joints, and captions describe the scene. Choose the annotations for your task.</p>
+          <p><strong>When to use it:</strong> COCO is a standard benchmark for general-purpose detection. Real-time detectors such as YOLOv8, YOLO11 and RT-DETR offer COCO-pretrained weights you can fine-tune on your own images.</p>
+          <a href="https://cocodataset.org/#download" className="inline-flex items-center gap-2 rounded-xl bg-royal-600 px-4 py-2 font-semibold text-white hover:bg-royal-500">Download MS COCO <ArrowRight aria-hidden="true" className="h-4 w-4" /></a>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Load it with <a className="underline" href="https://docs.ultralytics.com/datasets/detect/coco/">Ultralytics</a> or <a className="underline" href="https://docs.voxel51.com/dataset_zoo/datasets.html#coco-2017">FiftyOne</a>. For downloaded images and annotations, use <a className="underline" href="https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.CocoDetection.html">TorchVision’s CocoDetection</a>.</p>
+        </div>
+      </Card>
+    </section>
+  )
+}
+
 export function Landing() {
   return (
     <PublicLayout>
@@ -122,6 +147,8 @@ export function Landing() {
           </motion.div>
         </div>
       </section>
+
+      <CocoDatasetGuide />
 
       <section className="bg-navy-950 py-16 text-white">
         <div className="mx-auto max-w-4xl px-4 text-center">
