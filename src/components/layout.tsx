@@ -5,20 +5,23 @@ import {
   Users, Megaphone, Shield, FileText, LogOut, Menu, X, Search, Moon, Sun, GraduationCap,
   ClipboardList, Home, Sparkles, ChevronRight,
 } from 'lucide-react'
-import { useStore, useCurrentUser } from '../lib/store'
+import { focusDeadline, useStore, useCurrentUser } from '../lib/store'
 import { Toaster } from './ui'
 import type { Role } from '../lib/types'
 
 // Tab-visibility tracking runs app-wide during an active focus session:
 // when this tab is hidden we record the event; on return we record the
 // hidden duration. It never inspects other tabs or applications.
-function useFocusVisibility() {
-  const recordVisibility = useStore((s) => s.recordVisibility)
+export function useFocusVisibility() {
+  const session = useStore((s) => s.activeFocus)
   useEffect(() => {
-    const h = () => recordVisibility(document.hidden)
-    document.addEventListener('visibilitychange', h)
-    return () => document.removeEventListener('visibilitychange', h)
-  }, [recordVisibility])
+    if (!session || session.status !== 'running') return
+    const sync = () => useStore.getState().recordVisibility(document.hidden)
+    sync() // reconcile a hidden interval after refreshing or restoring the page
+    const timer = window.setTimeout(() => useStore.getState().pauseFocus(), Math.max(0, focusDeadline(session) - Date.now()))
+    document.addEventListener('visibilitychange', sync)
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', sync) }
+  }, [session?.sessionId, session?.lastResumeAt])
 }
 
 export function useTheme() {
@@ -83,9 +86,9 @@ const HOME: Record<Role, string> = {
   student: '/student/dashboard', teacher: '/teacher/dashboard', parent: '/parent/dashboard', admin: '/admin/dashboard',
 }
 
-export function Logo({ light = false }: { light?: boolean }) {
+export function Logo({ light = false, to = '/' }: { light?: boolean; to?: string }) {
   return (
-    <Link to="/" className="flex items-center gap-2.5" aria-label="FocusEd AI home">
+    <Link to={to} className="flex items-center gap-2.5" aria-label="FocusEd AI home">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-royal-500 text-white"><Timer className="h-5 w-5" /></span>
       <span className={`font-display text-lg font-extrabold tracking-tight ${light ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
         FocusEd <span className="text-royal-500">AI</span>
@@ -97,19 +100,26 @@ export function Logo({ light = false }: { light?: boolean }) {
 export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [q, setQ] = useState('')
   const user = useCurrentUser()
-  const { assignments, classes } = useStore()
+  const { assignments, classes, users, guardianLinks } = useStore()
   const navigate = useNavigate()
   const results = useMemo(() => {
     if (!q.trim() || !user) return []
-    const query = q.toLowerCase()
-    const out: { label: string; sub: string; to: string }[] = []
-    assignments.filter((a) => a.status === 'published' || user.role !== 'student')
-      .filter((a) => a.title.toLowerCase().includes(query) || a.subject.toLowerCase().includes(query))
-      .slice(0, 6).forEach((a) => out.push({ label: a.title, sub: `${a.subject} · due ${new Date(a.dueAt).toLocaleDateString()}`, to: user.role === 'student' ? `/student/assignments/${a.id}` : `/teacher/assignments/${a.id}` }))
-    classes.filter((c) => c.name.toLowerCase().includes(query)).slice(0, 3)
-      .forEach((c) => out.push({ label: c.name, sub: `Class · ${c.grade}`, to: user.role === 'teacher' ? '/teacher/classes' : '/student/dashboard' }))
-    return out
-  }, [q, user, assignments, classes])
+    const query = q.trim().toLowerCase()
+    const linkedChildren = guardianLinks.filter((g) => g.parentId === user.id && g.status === 'accepted')
+    const childClasses = new Set(users.filter((u) => linkedChildren.some((g) => g.studentId === u.id)).map((u) => u.classId))
+    const assignmentResults = assignments.filter((a) => {
+      if (user.role === 'admin') return true
+      if (user.role === 'teacher') return a.teacherId === user.id
+      return a.status === 'published' && (user.role === 'student' ? a.classId === user.classId : childClasses.has(a.classId))
+    }).filter((a) => a.title.toLowerCase().includes(query) || a.subject.toLowerCase().includes(query))
+      .slice(0, 6).map((a) => ({ key: `assignment-${a.id}`, label: a.title, sub: `${a.subject} · due ${new Date(a.dueAt).toLocaleDateString()}`,
+        to: user.role === 'student' || user.role === 'teacher' ? `/${user.role}/assignments/${a.id}` : `/${user.role}/assignments` }))
+    const classResults = classes.filter((c) => user.role === 'admin' || (user.role === 'teacher' && c.teacherId === user.id))
+      .filter((c) => c.name.toLowerCase().includes(query)).slice(0, 3)
+      .map((c) => ({ key: `class-${c.id}`, label: c.name, sub: `Class · ${c.grade}`, to: `/${user.role}/classes` }))
+    return [...assignmentResults, ...classResults]
+  }, [q, user, assignments, classes, users, guardianLinks])
+  const searchable = user?.role === 'teacher' || user?.role === 'admin' ? 'assignments and classes' : 'assignments'
   useEffect(() => {
     if (open) setQ('')
   }, [open ])
@@ -119,14 +129,14 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
       <div className="mx-auto mt-20 max-w-lg rounded-2xl bg-white p-4 shadow-2xl dark:bg-navy-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
           <Search className="h-5 w-5 text-slate-400" />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search assignments, classes…  (Esc to close)"
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${searchable}… (Esc to close)`}
             className="w-full bg-transparent text-sm outline-none dark:text-white" aria-label="Search" />
           <button onClick={onClose} aria-label="Close search"><X className="h-5 w-5 text-slate-400" /></button>
         </div>
         <div className="max-h-80 overflow-auto py-2">
-          {results.length === 0 && <p className="px-2 py-4 text-sm text-slate-500">Type to search your assignments and classes.</p>}
+          {results.length === 0 && <p className="px-2 py-4 text-sm text-slate-500">{q.trim() ? 'No matches found.' : `Type to search your ${searchable}.`}</p>}
           {results.map((r) => (
-            <button key={r.label} className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-navy-800"
+            <button key={r.key} className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-navy-800"
               onClick={() => { onClose(); navigate(r.to) }}>
               <span><span className="block text-sm font-semibold text-slate-900 dark:text-white">{r.label}</span><span className="text-xs text-slate-500">{r.sub}</span></span>
               <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -139,7 +149,6 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
 }
 
 export function AppShell() {
-  useFocusVisibility()
   const user = useCurrentUser()
   const { dark, toggle } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -166,9 +175,9 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
       <div className="flex">
-        <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-200 bg-white transition-transform dark:border-slate-700 dark:bg-navy-900 lg:static lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Main navigation">
-          <div className="flex h-16 items-center justify-between px-4"><Logo /><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button></div>
-          <nav className="space-y-1 px-3 py-2">
+        <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col transform border-r border-slate-200 bg-white transition-transform dark:border-slate-700 dark:bg-navy-900 lg:sticky lg:top-0 lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Main navigation">
+          <div className="flex h-16 shrink-0 items-center justify-between px-4"><Logo to={HOME[user.role]} /><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button></div>
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
             {nav.map((item) => (
               <NavLink key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
                 className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-royal-500/10 text-royal-600 dark:text-royal-400' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-navy-800'}`}>
@@ -176,7 +185,7 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
-          <div className="absolute bottom-0 w-full border-t border-slate-200 p-4 dark:border-slate-700">
+          <div className="shrink-0 border-t border-slate-200 p-4 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-royal-500 text-sm font-bold text-white">{user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
               <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs capitalize text-slate-500">{user.role} · Demo</p></div>
@@ -188,8 +197,8 @@ export function AppShell() {
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-700 dark:bg-navy-900/90">
             <button className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
-            <button onClick={() => setSearchOpen(true)} className="hidden items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 sm:flex dark:border-slate-600" aria-label="Search (Ctrl+K)">
-              <Search className="h-4 w-4" /> Search… <kbd className="rounded bg-slate-100 px-1.5 font-mono text-xs dark:bg-navy-800">Ctrl K</kbd>
+            <button onClick={() => setSearchOpen(true)} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-slate-600" aria-label="Search (Ctrl+K)">
+              <Search className="h-4 w-4" /> <span className="hidden sm:inline">Search…</span> <kbd className="hidden rounded bg-slate-100 px-1.5 sm:inline font-mono text-xs dark:bg-navy-800">Ctrl K</kbd>
             </button>
             <div className="flex-1" />
             <button onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800">

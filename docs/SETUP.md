@@ -1,7 +1,7 @@
 # FocusEd AI — Setup
 
 ## Prerequisites
-- Node.js 18+ and npm
+- Node.js 22.12+ and npm
 - Supabase CLI (`npm i -g supabase`) and Docker (for local Supabase only)
 - A Supabase account (for the hosted path only)
 
@@ -10,8 +10,7 @@
 This is the runnable path — all data is stored only on this computer, in the browser's localStorage. No Supabase project is needed.
 
 ```bash
-cd focused-ai
-npm install
+npx bun@1.4.5 install --frozen-lockfile
 npm run dev
 ```
 

@@ -20,7 +20,7 @@ parent visibility, all scoped per institution with Row Level Security.
 ## Quick start (local-only storage — no setup)
 
 ```bash
-npm install
+npx bun@1.4.5 install --frozen-lockfile
 npm run dev
 ```
 
@@ -45,7 +45,7 @@ sample credentials for Demo Mode only — never use them in production.
 ## Commands
 
 ```bash
-npm install     # install dependencies
+npx bun@1.4.5 install --frozen-lockfile     # install dependencies
 npm run dev     # start the Vite dev server (http://localhost:5173)
 npm run build   # production build (must pass before deploying)
 npm test        # frontend test suite (Vitest)

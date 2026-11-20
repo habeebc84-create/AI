@@ -21,15 +21,26 @@ export function PageHeader({ title, sub, action }: { title: string; sub?: string
   )
 }
 
-export function useFocusVisibility() {
-  const recordVisibility = useStore((s) => s.recordVisibility)
-  const activeFocus = useStore((s) => s.activeFocus)
+function useFocusClock() {
+  const af = useStore((s) => s.activeFocus)
+  const [, tick] = useState(0)
   useEffect(() => {
-    const h = () => recordVisibility(document.hidden)
-    document.addEventListener('visibilitychange', h)
-    return () => document.removeEventListener('visibilitychange', h)
-  }, [recordVisibility])
-  return activeFocus
+    if (af?.status !== 'running') return
+    const timer = setInterval(() => tick((n) => n + 1), 1000)
+    return () => clearInterval(timer)
+  }, [af?.status])
+  const elapsed = af ? Math.floor(activeElapsedMs(af.startedAt, af.accumulatedMs, af.lastResumeAt, Date.now()) / 1000) : 0
+  return { af, elapsed, remaining: af ? Math.max(0, af.plannedSeconds - elapsed) : 0 }
+}
+
+function CurrentSession() {
+  const { af, remaining } = useFocusClock()
+  if (!af) return null
+  return <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 border-royal-400 p-5">
+    <div><h2 className="font-display font-bold">Active session</h2><p>{af.goal}</p>
+      <p className="text-sm text-slate-500">{!remaining ? 'Time is up' : af.status === 'running' ? 'Running' : 'Paused'} · {formatDuration(remaining)} remaining · Tab switches: {af.visibilityCount}</p></div>
+    <Link className="font-semibold text-royal-500 underline" to="/student/focus">Return to session</Link>
+  </Card>
 }
 
 function myAssignments(userId: string, classId?: string) {
@@ -37,15 +48,32 @@ function myAssignments(userId: string, classId?: string) {
   return assignments.filter((a) => a.status === 'published' && a.classId === classId)
 }
 
+function StudyTasks({ assignmentId }: { assignmentId?: string | null }) {
+  const { studyPlans, currentUserId, togglePlanItem } = useStore()
+  const tasks = studyPlans.find((p) => p.studentId === currentUserId)?.items
+    .filter((t) => !t.done && (!assignmentId || t.assignmentId === assignmentId))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.startMin - b.startMin) ?? []
+  return (<Card className="p-5"><h2 className="font-display text-lg font-bold">Study tasks</h2>
+          {tasks.map((t) => <label key={t.id} className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <input type="checkbox" checked={false} onChange={() => togglePlanItem(t.id)} aria-label={`Mark ${t.title} done`} />
+            <span><span className="block font-semibold">{t.title}</span><span className="text-sm text-slate-500">{fmtDate(t.date)} · {t.durationMin} min</span></span>
+          </label>)}
+          {!tasks.length && <p className="mt-3 text-sm text-slate-500">{assignmentId ? 'No unfinished study tasks for this homework.' : 'No unfinished tasks in your study plan.'}</p>}
+          <Link to="/student/study-planner" className="mt-4 inline-block font-semibold text-royal-500 underline">Open study planner</Link>
+        </Card>)
+}
+
 export function StudentDashboard() {
   const user = useCurrentUser()!
-  const { assignments, submissions, focusSessions, notifications } = useStore()
+  const { activeFocus, submissions, focusSessions, notifications } = useStore()
   const mine = myAssignments(user.id, user.classId)
   const mySubs = submissions.filter((s) => s.studentId === user.id)
-  const completed = mySubs.filter((s) => s.status === 'completed' || s.status === 'submitted' || s.status === 'late').length
+  const pending = mine.filter((a) => !mySubs.some((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision))
+    .sort((a, b) => Date.parse(a.dueAt) - Date.parse(b.dueAt))
+  const completed = mine.length - pending.length
   const rate = completionRate(completed, mine.length)
-  const overdue = mine.filter((a) => new Date(a.dueAt) < new Date() && !mySubs.some((s) => s.assignmentId === a.id && s.submittedAt)).length
-  const dueSoon = mine.filter((a) => minsUntil(a.dueAt) > 0 && minsUntil(a.dueAt) < 60 * 48 && !mySubs.some((s) => s.assignmentId === a.id && s.submittedAt))
+  const overdue = pending.filter((a) => minsUntil(a.dueAt) < 0).length
+  const dueSoon = pending.filter((a) => minsUntil(a.dueAt) >= 0 && minsUntil(a.dueAt) <= 48 * 60)
   const weekMs = focusSessions.filter((s) => s.studentId === user.id && Date.now() - new Date(s.startedAt).getTime() < 7 * 86400000).reduce((t, s) => t + s.activeMs, 0)
   const weekData = [6, 5, 4, 3, 2, 1, 0].map((d) => {
     const day = new Date(Date.now() - d * 86400000)
@@ -53,14 +81,19 @@ export function StudentDashboard() {
     return { day: day.toLocaleDateString(undefined, { weekday: 'short' }), minutes: Math.round(mins) }
   })
   const unread = notifications.filter((n) => n.userId === user.id && !n.read)
-  const insight = overdue > 0
-    ? `You have ${overdue} overdue assignment${overdue > 1 ? 's' : ''}. Start with the smallest one — a 25-minute focus session is enough to make real progress.`
-    : dueSoon.length > 0
-      ? `Nothing overdue. ${dueSoon.length} assignment${dueSoon.length > 1 ? 's are' : ' is'} due within 48 hours — your planner already has time blocked for them.`
-      : 'All caught up. Use a focus session to get ahead on next week’s work.'
   return (
     <div>
-      <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} sub="Here is your homework, focus and progress — from your real records." action={<Link to="/student/focus"><Button><Play className="h-4 w-4" /> Start Focus Session</Button></Link>} />
+      <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} sub="Your homework and study tasks." action={!activeFocus && <Link to="/student/focus"><Button><Play className="h-4 w-4" /> Start focus session</Button></Link>} />
+      <CurrentSession />
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        <Card className="p-5"><h2 className="font-display text-lg font-bold">Homework to do</h2>
+          {pending.map((a) => <Link key={a.id} to={`/student/assignments/${a.id}`} className="mt-3 block rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
+            <span className="block font-semibold">{a.title}</span><span className="text-sm text-slate-500">{a.subject} · Due {fmtDateTime(a.dueAt)}{mySubs.some((s) => s.assignmentId === a.id && s.returnedForRevision) && ' · Revision requested'}</span>
+          </Link>)}
+          {!pending.length && <p className="mt-3 text-sm text-slate-500">No outstanding homework.</p>}
+        </Card>
+        <StudyTasks />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Assignments', value: `${completed}/${mine.length}`, sub: `${rate}% complete`, icon: BookOpen },
@@ -85,31 +118,6 @@ export function StudentDashboard() {
           <h2 className="font-display text-lg font-bold">Completion</h2>
           <div className="mt-4 flex items-center gap-4"><ProgressRing value={rate} size={96} label="Assignment completion" />
             <div className="text-sm"><p>{completed} of {mine.length} assignments submitted</p><p className="mt-1 text-slate-500">{overdue} overdue</p></div></div>
-          <div className="mt-5 rounded-xl bg-indigo-50 p-4 text-sm dark:bg-indigo-900/30"><p className="font-semibold">Insight</p><p className="mt-1 text-slate-600 dark:text-slate-300">{insight}</p></div>
-        </Card>
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="font-display text-lg font-bold">Upcoming deadlines</h2>
-          {mine.filter((a) => !mySubs.some((s) => s.assignmentId === a.id && s.submittedAt)).sort((a, b) => +new Date(a.dueAt) - +new Date(b.dueAt)).slice(0, 4).map((a) => (
-            <Link key={a.id} to={`/student/assignments/${a.id}`} className="mt-3 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
-              <span><span className="block text-sm font-semibold">{a.title}</span><span className="text-xs text-slate-500">{a.subject} · {fmtDateTime(a.dueAt)}</span></span>
-              {statusBadge(new Date(a.dueAt) < new Date() ? 'late' : 'published')}
-            </Link>
-          ))}
-          {mine.length === 0 && <EmptyState title="No assignments yet" body="When your teacher publishes work, it will appear here." />}
-        </Card>
-        <Card className="p-5">
-          <h2 className="font-display text-lg font-bold">Quick actions</h2>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <Link to="/student/focus"><Button variant="outline" className="w-full justify-start"><Timer className="h-4 w-4" /> Start Focus</Button></Link>
-            <Link to="/student/assignments"><Button variant="outline" className="w-full justify-start"><BookOpen className="h-4 w-4" /> View Assignments</Button></Link>
-            <Link to="/student/ai-tutor"><Button variant="outline" className="w-full justify-start"><Bot className="h-4 w-4" /> Open AI Tutor</Button></Link>
-            <Link to="/student/study-planner"><Button variant="outline" className="w-full justify-start"><CalendarDays className="h-4 w-4" /> Plan My Week</Button></Link>
-          </div>
-          <h3 className="mt-5 font-display font-bold">Recent notifications</h3>
-          {unread.slice(0, 3).map((n) => (<p key={n.id} className="mt-2 text-sm"><span className="font-semibold">{n.title}</span> — <span className="text-slate-500">{n.body}</span></p>))}
-          {unread.length === 0 && <p className="mt-2 text-sm text-slate-500">You are all caught up.</p>}
         </Card>
       </div>
     </div>
@@ -157,6 +165,10 @@ export function StudentAssignments() {
 
 export function StudentAssignmentDetail() {
   const { id } = useParams()
+  return <AssignmentDetailForm key={id} id={id} />
+}
+
+function AssignmentDetailForm({ id }: { id?: string }) {
   const user = useCurrentUser()!
   const { assignments, submissions, saveDraft, submitAssignment } = useStore()
   const navigate = useNavigate()
@@ -165,7 +177,7 @@ export function StudentAssignmentDetail() {
   const [error, setError] = useState('')
   const [fileNote, setFileNote] = useState('')
   const [saved, setSaved] = useState(false)
-  const a = assignments.find((x) => x.id === id)
+  const a = assignments.find((x) => x.id === id && x.classId === user.classId)
   const existing = submissions.find((s) => s.assignmentId === id && s.studentId === user.id)
   useEffect(() => { if (existing) { setText(existing.text); setFiles(existing.files) } }, [existing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!a) return <EmptyState title="Assignment not found" body="It may have been removed, or the link is wrong." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
@@ -268,9 +280,8 @@ export function StudentSubmissions() {
 }
 
 export function FocusPage() {
-  useFocusVisibility()
   const user = useCurrentUser()!
-  const { assignments, activeFocus, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents } = useStore()
+  const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents } = useStore()
   const [assignmentId, setAssignmentId] = useState('')
   const [goal, setGoal] = useState('')
   const [mode, setMode] = useState<'pomodoro' | 'short-break' | 'long-break' | 'custom'>('pomodoro')
@@ -278,41 +289,39 @@ export function FocusPage() {
   const [rating, setRating] = useState<number | null>(null)
   const [reflection, setReflection] = useState('')
   const [showSummary, setShowSummary] = useState(false)
-  const [, tick] = useState(0)
-  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t) }, [])
-  const af = activeFocus
+  const { af, elapsed, remaining } = useFocusClock()
   const planned = af ? af.plannedSeconds : mode === 'pomodoro' ? focusPrefs.pomodoroMin * 60 : mode === 'short-break' ? focusPrefs.shortBreakMin * 60 : mode === 'long-break' ? focusPrefs.longBreakMin * 60 : customMin * 60
-  const elapsed = af ? Math.floor(activeElapsedMs(af.startedAt, af.accumulatedMs, af.lastResumeAt, Date.now()) / 1000) : 0
-  const remaining = Math.max(0, planned - elapsed)
-  const done = af && remaining <= 0
-  useEffect(() => { if (done && af?.status === 'running') pauseFocus() }, [done]) // eslint-disable-line react-hooks/exhaustive-deps
   const start = () => {
-    if (!goal.trim()) { toast('Add a study goal first.', 'error'); return }
-    startFocus(assignmentId || null, goal, mode, planned)
+    const sessionGoal = goal.trim() || assignments.find((a) => a.id === assignmentId)?.title
+    if (!sessionGoal) { toast('Choose homework or enter a study goal.', 'error'); return }
+    if (mode === 'custom' && (!Number.isInteger(customMin) || customMin < 5 || customMin > 180)) { toast('Choose a duration from 5 to 180 minutes.', 'error'); return }
+    setShowSummary(false)
+    startFocus(assignmentId || null, sessionGoal, mode, planned)
   }
   const finish = () => { finishFocus(rating, reflection); setShowSummary(true); setRating(null); setReflection('') }
   const sessionEvents = af ? focusEvents.filter((e) => e.sessionId === af.sessionId) : []
   return (
     <div>
-      <PageHeader title="Focus Mode" sub="Timestamp-based timer. Switching tabs records a visibility event — a limited signal, never a judgement." />
+      <PageHeader title="Focus Mode" sub="Your timer keeps running when you switch tabs. Only the number of switches and time away are recorded, not what you open." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="flex flex-col items-center p-8 text-center">
           <div className="relative flex h-56 w-56 items-center justify-center">
             <svg width="224" height="224" className="-rotate-90" role="img" aria-label={af ? `Focus timer: ${formatDuration(remaining)} remaining` : 'Focus timer ready'}>
               <circle cx="112" cy="112" r="100" fill="none" strokeWidth="12" className="stroke-slate-200 dark:stroke-slate-700" />
-              <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? elapsed / planned : 0))} />
+              <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
             </svg>
             <div className="absolute text-center">
               <p className="font-mono text-5xl font-bold">{af ? formatDuration(remaining) : formatDuration(planned)}</p>
-              <p className="mt-1 text-sm text-slate-500">{af ? (af.status === 'running' ? 'Focusing…' : 'Paused') : 'Ready'}</p>
+              <p className="mt-1 text-sm text-slate-500">{af ? (!remaining ? 'Time is up' : af.status === 'running' ? 'Focusing…' : 'Paused') : 'Ready'}</p>
             </div>
           </div>
           {af ? (
             <div className="mt-6 w-full">
               <p className="font-semibold">{af.goal}</p>
-              <p className="text-sm text-slate-500">{af.mode} · planned {formatDuration(af.plannedSeconds)} · tab hidden {af.visibilityCount} time{af.visibilityCount === 1 ? '' : 's'} ({formatMinutes(af.hiddenMs)} total)</p>
+              {af.assignmentId && <Link className="text-sm text-royal-500 underline" to={`/student/assignments/${af.assignmentId}`}>Open homework</Link>}
+              <p className="text-sm text-slate-500">{af.mode} · Tab switches: {af.visibilityCount} · Away {formatDuration(af.hiddenMs / 1000)}</p>
               <div className="mt-4 flex justify-center gap-2">
-                {af.status === 'running' ? <Button onClick={pauseFocus} variant="outline"><Pause className="h-4 w-4" /> Pause</Button> : <Button onClick={resumeFocus}><Play className="h-4 w-4" /> Resume</Button>}
+                {af.status === 'running' ? <Button onClick={pauseFocus} variant="outline"><Pause className="h-4 w-4" /> Pause</Button> : remaining > 0 && <Button onClick={resumeFocus}><Play className="h-4 w-4" /> Resume</Button>}
                 <Button onClick={finish} variant="secondary"><CheckCircle2 className="h-4 w-4" /> Finish session</Button>
               </div>
               <div className="mx-auto mt-5 max-w-sm text-left">
@@ -330,18 +339,17 @@ export function FocusPage() {
               <div><Label>Timer mode</Label><Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}><option value="pomodoro">Pomodoro — {focusPrefs.pomodoroMin} min</option><option value="short-break">Short break — {focusPrefs.shortBreakMin} min</option><option value="long-break">Long break — {focusPrefs.longBreakMin} min</option><option value="custom">Custom</option></Select></div>
               {mode === 'custom' && <div><Label>Custom duration (minutes)</Label><Input type="number" min={5} max={180} value={customMin} onChange={(e) => setCustomMin(Number(e.target.value))} /></div>}
               <Button onClick={start} className="w-full" size="lg"><Play className="h-4 w-4" /> Start focus session</Button>
-              <p className="text-xs text-slate-500">The timer is computed from real timestamps, so refreshing the page or switching tabs does not lose your session. A hidden tab is recorded as a visibility event only.</p>
+              <p className="text-xs text-slate-500">You can return to this session from Home.</p>
             </div>
           )}
         </Card>
-        <Card className="p-6">
-          <h2 className="font-display text-lg font-bold">Session events</h2>
-          <p className="text-sm text-slate-500">Visibility events are recorded when this tab is hidden or shown again. A hidden tab can mean legitimate research — it is not labelled as distraction.</p>
-          {sessionEvents.length === 0 ? <p className="mt-4 text-sm text-slate-500">No events yet in this session. Start a session, then switch to another tab and come back to see an event recorded here.</p> : (
-            <ul className="mt-4 space-y-2">{sessionEvents.map((e) => (<li key={e.id} className="flex justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-navy-800"><span className="capitalize">{e.type}{e.hiddenMs ? ` — hidden ${formatMinutes(e.hiddenMs)}` : ''}</span><span className="text-slate-500">{new Date(e.at).toLocaleTimeString()}</span></li>))}</ul>
-          )}
-          {showSummary && <div className="mt-5 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-900/20"><p className="font-semibold text-emerald-700 dark:text-emerald-300">Session complete — well done.</p><p className="mt-1 text-sm">Your session is saved in Focus History. A short break now will help the next session more than pushing on tired.</p></div>}
-        </Card>
+        <div className="space-y-4">
+          <StudyTasks assignmentId={af?.assignmentId || assignmentId} />
+          {af && <Card className="p-5"><details><summary className="cursor-pointer font-semibold">Session events ({sessionEvents.length})</summary>
+            <ul className="mt-3 max-h-72 space-y-2 overflow-auto">{sessionEvents.map((e) => (<li key={e.id} className="flex justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-navy-800"><span className="capitalize">{e.type}{e.hiddenMs ? ` — away ${formatDuration(e.hiddenMs / 1000)}` : ''}</span><span className="text-slate-500">{new Date(e.at).toLocaleTimeString()}</span></li>))}</ul>
+          </details></Card>}
+          {showSummary && <div className="mt-5 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-900/20"><p className="font-semibold text-emerald-700 dark:text-emerald-300">Session complete — well done.</p><p className="mt-1 text-sm"><Link to="/student/focus/history" className="underline">View your saved session in Focus History</Link>.</p></div>}
+        </div>
       </div>
     </div>
   )
@@ -363,7 +371,7 @@ export function FocusHistory() {
               <Badge color="emerald">{formatMinutes(s.activeMs)} active</Badge>
             </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Planned {formatDuration(s.plannedSeconds)} · paused {formatMinutes(s.pausedMs)} · tab hidden {s.visibilityCount} time{s.visibilityCount === 1 ? '' : 's'} ({formatMinutes(s.hiddenMs)})
+              Planned {formatDuration(s.plannedSeconds)} · paused {formatMinutes(s.pausedMs)} · tab hidden {s.visibilityCount} time{s.visibilityCount === 1 ? '' : 's'} ({formatDuration(s.hiddenMs / 1000)})
               {s.focusRating ? ` · self-rated focus ${s.focusRating}/5` : ''}
             </p>
             {s.reflection && <p className="mt-1 text-sm italic text-slate-500">“{s.reflection}”</p>}
@@ -446,8 +454,9 @@ export function StudyPlanner() {
   const [startHour, setStartHour] = useState(16)
   const [endHour, setEndHour] = useState(20)
   const generate = () => {
+    if (!Number.isInteger(startHour) || !Number.isInteger(endHour) || startHour < 6 || endHour > 23 || endHour <= startHour) { toast('Choose a study window between 06:00 and 23:00, with the end after the start.', 'error'); return }
     const days = [0, 1, 2, 3, 4, 5, 6].map((d) => new Date(Date.now() + d * 86400000).toISOString().slice(0, 10))
-    const tasks = assignments.filter((a) => a.status === 'published' && a.classId === user.classId && !submissions.some((s) => s.assignmentId === a.id && s.studentId === user.id && s.submittedAt))
+    const tasks = assignments.filter((a) => a.status === 'published' && a.classId === user.classId && !submissions.some((s) => s.assignmentId === a.id && s.studentId === user.id && s.submittedAt && !s.returnedForRevision))
       .map((a) => ({ assignmentId: a.id, title: a.title, dueAt: a.dueAt, estMinutes: 60 }))
     const blocks = buildStudyPlan(tasks, days, startHour * 60, endHour * 60, 10)
     saveStudyPlan(blocks.map((b) => ({ id: uid('pi'), assignmentId: b.assignmentId, title: b.title, date: b.date, startMin: b.startMin, durationMin: b.durationMin, done: false })))

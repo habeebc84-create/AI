@@ -14,6 +14,7 @@ import { uid, storedFileBytes, LOCAL_FILE_BUDGET_BYTES } from './utils'
 export const DEMO_MODE = true
 
 export interface ActiveFocus {
+  studentId: string
   sessionId: string
   assignmentId: string | null
   goal: string
@@ -26,6 +27,15 @@ export interface ActiveFocus {
   hiddenSince: string | null
   visibilityCount: number
   status: 'running' | 'paused'
+}
+
+// Running time includes hidden time: a tab switch is not a pause.
+export function focusDeadline(af: ActiveFocus) {
+  return Date.parse(af.lastResumeAt!) + af.plannedSeconds * 1000 - af.accumulatedMs
+}
+
+function hiddenDuration(af: ActiveFocus, end: number) {
+  return af.hiddenSince ? Math.max(0, end - Date.parse(af.hiddenSince)) : 0
 }
 
 interface FocusPrefs { pomodoroMin: number; shortBreakMin: number; longBreakMin: number }
@@ -128,6 +138,7 @@ export const useStore = create<AppState>()(
         const user = get().users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
         if (!user) return { ok: false, error: 'No account with that email on this computer. Try a sample account or register.' }
         if (user.password !== password) return { ok: false, error: 'Incorrect password. Sample accounts use “demo1234”.' }
+        if (get().currentUserId !== user.id && get().activeFocus) get().finishFocus(null, '')
         set({ currentUserId: user.id })
         get().audit(user.id, 'auth.login', `${user.name} signed in.`)
         return { ok: true }
@@ -136,11 +147,15 @@ export const useStore = create<AppState>()(
         if (get().users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) return { ok: false, error: 'An account with that email already exists.' }
         if (password.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' }
         const user: User = { id: uid('u'), name, email: email.trim(), password, role: 'student', school: school || 'Sunrise Public School', grade, classId: 'c_10a', subjects: ['Mathematics', 'Science', 'English'], createdAt: new Date().toISOString() }
+        if (get().activeFocus) get().finishFocus(null, '')
         set((s) => ({ users: [...s.users, user], currentUserId: user.id }))
         get().audit(user.id, 'auth.register', `${name} registered as a student.`)
         return { ok: true }
       },
-      logout: () => set({ currentUserId: null }),
+      logout: () => {
+        if (get().activeFocus) get().finishFocus(null, '')
+        set({ currentUserId: null })
+      },
       resetDemo: () => {
         const fresh = buildSeed()
         set({ ...fresh, currentUserId: null, aiConfig: initialAiConfig, auditLogs: [], focusEvents: [], activeFocus: null })
@@ -221,25 +236,25 @@ export const useStore = create<AppState>()(
 
       startFocus: (assignmentId, goal, mode, plannedSeconds) => {
         const userId = get().currentUserId
-        if (!userId) return
+        if (!userId || get().activeFocus || !Number.isFinite(plannedSeconds) || plannedSeconds <= 0 || !get().users.some((u) => u.id === userId && u.role === 'student')) return
         const sessionId = uid('fs')
         set({
-          activeFocus: { sessionId, assignmentId, goal, mode, plannedSeconds, startedAt: new Date().toISOString(), accumulatedMs: 0, lastResumeAt: new Date().toISOString(), hiddenMs: 0, hiddenSince: null, visibilityCount: 0, status: 'running' },
+          activeFocus: { studentId: userId, sessionId, assignmentId, goal, mode, plannedSeconds, startedAt: new Date().toISOString(), accumulatedMs: 0, lastResumeAt: new Date().toISOString(), hiddenMs: 0, hiddenSince: null, visibilityCount: 0, status: 'running' },
           focusEvents: [{ id: uid('fe'), sessionId, type: 'start', at: new Date().toISOString() }, ...get().focusEvents],
         })
       },
       pauseFocus: () => {
         const af = get().activeFocus
         if (!af || af.status !== 'running' || !af.lastResumeAt) return
-        const now = Date.now()
+        const now = Math.min(Date.now(), focusDeadline(af))
         set({
-          activeFocus: { ...af, status: 'paused', accumulatedMs: af.accumulatedMs + (now - new Date(af.lastResumeAt).getTime()), lastResumeAt: null },
-          focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'pause', at: new Date().toISOString() }, ...get().focusEvents],
+          activeFocus: { ...af, hiddenMs: af.hiddenMs + hiddenDuration(af, now), hiddenSince: null, status: 'paused', accumulatedMs: af.accumulatedMs + (now - new Date(af.lastResumeAt).getTime()), lastResumeAt: null },
+          focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'pause', at: new Date(now).toISOString() }, ...get().focusEvents],
         })
       },
       resumeFocus: () => {
         const af = get().activeFocus
-        if (!af || af.status !== 'paused') return
+        if (!af || af.status !== 'paused' || af.accumulatedMs >= af.plannedSeconds * 1000) return
         set({
           activeFocus: { ...af, status: 'running', lastResumeAt: new Date().toISOString() },
           focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'resume', at: new Date().toISOString() }, ...get().focusEvents],
@@ -250,12 +265,13 @@ export const useStore = create<AppState>()(
         const userId = get().currentUserId
         if (!af || !userId) return
         const now = Date.now()
-        const activeMs = af.lastResumeAt ? af.accumulatedMs + (now - new Date(af.lastResumeAt).getTime()) : af.accumulatedMs
+        const end = af.lastResumeAt ? Math.min(now, focusDeadline(af)) : now
+        const activeMs = af.accumulatedMs + (af.lastResumeAt ? end - Date.parse(af.lastResumeAt) : 0)
         const session: FocusSession = {
-          id: af.sessionId, studentId: userId, assignmentId: af.assignmentId, goal: af.goal, mode: af.mode,
+          id: af.sessionId, studentId: af.studentId, assignmentId: af.assignmentId, goal: af.goal, mode: af.mode,
           plannedSeconds: af.plannedSeconds, startedAt: af.startedAt, endedAt: new Date().toISOString(),
-          activeMs, pausedMs: Math.max(0, now - new Date(af.startedAt).getTime() - activeMs - af.hiddenMs),
-          hiddenMs: af.hiddenMs, visibilityCount: af.visibilityCount, status: 'completed', focusRating: rating, reflection,
+          activeMs, pausedMs: Math.max(0, now - new Date(af.startedAt).getTime() - activeMs),
+          hiddenMs: af.hiddenMs + hiddenDuration(af, end), visibilityCount: af.visibilityCount, status: 'completed', focusRating: rating, reflection,
         }
         set((s) => ({
           focusSessions: [session, ...s.focusSessions],
@@ -266,15 +282,16 @@ export const useStore = create<AppState>()(
       },
       recordVisibility: (hidden) => {
         const af = get().activeFocus
-        if (!af) return
+        if (!af || af.status !== 'running') return
+        if (Date.now() >= focusDeadline(af)) { get().pauseFocus(); return }
         const nowIso = new Date().toISOString()
         if (hidden) {
-          if (af.hiddenSince) return // already hidden: two listeners (app shell + focus page) must not double-record
-          set({ activeFocus: { ...af, hiddenSince: nowIso }, focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'hidden', at: nowIso }, ...get().focusEvents] })
+          if (af.hiddenSince) return
+          set({ activeFocus: { ...af, visibilityCount: af.visibilityCount + 1, hiddenSince: nowIso }, focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'hidden', at: nowIso }, ...get().focusEvents] })
         } else if (af.hiddenSince) {
           const hiddenMs = Date.now() - new Date(af.hiddenSince).getTime()
           set({
-            activeFocus: { ...af, hiddenSince: null, hiddenMs: af.hiddenMs + hiddenMs, visibilityCount: af.visibilityCount + 1 },
+            activeFocus: { ...af, hiddenSince: null, hiddenMs: af.hiddenMs + hiddenMs },
             focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'visible', at: nowIso, hiddenMs }, ...get().focusEvents],
           })
         }
@@ -338,15 +355,15 @@ export const useStore = create<AppState>()(
       name: 'focused-ai-demo-v1',
       version: 1,
       storage: createJSONStorage(() => safeLocalStorage),
-      // A focus session left running when the browser closed shows up as a
-      // stale paused timer (00:00 against a planned session) on the next
-      // visit. Drop sessions started more than 2 hours ago; finished
-      // sessions are kept separately and are never touched.
-      onRehydrateStorage: () => (state) => {
-        const af = state?.activeFocus
-        if (af && isStaleFocusSession(af.startedAt)) {
-          useStore.setState({ activeFocus: null })
+      merge: (persisted, initial) => {
+        const state = { ...initial, ...(persisted as Partial<AppState>) }
+        const af = state.activeFocus
+        if (af) {
+          const owner = state.users.find((u) => u.id === state.currentUserId && u.role === 'student')
+          state.activeFocus = owner && (!af.studentId || af.studentId === owner.id) && !isStaleFocusSession(af.startedAt, Date.now(), af.plannedSeconds)
+            ? { ...af, studentId: owner.id } : null
         }
+        return state
       },
       partialize: (s) => ({
         users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
@@ -360,8 +377,8 @@ export const useStore = create<AppState>()(
 )
 
 /** A focus session started more than 2 hours ago is abandoned, not paused. */
-export function isStaleFocusSession(startedAt: string, now = Date.now()): boolean {
-  return now - new Date(startedAt).getTime() > 2 * 3600 * 1000
+export function isStaleFocusSession(startedAt: string, now = Date.now(), plannedSeconds = 0): boolean {
+  return now - new Date(startedAt).getTime() > Math.max(2 * 3600, plannedSeconds) * 1000
 }
 
 export const useCurrentUser = (): User | null => {
