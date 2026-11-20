@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import {
   ArrowRight, BookOpen, Timer, Bot, BarChart3, Shield, Users, CheckCircle2,
   Sparkles, CalendarDays, Bell, Search, Play, Pause, MessageSquare,
@@ -8,8 +7,6 @@ import {
 import { PublicLayout } from '../components/layout'
 import { Button, Card, Input, Label, Textarea, Badge, ProgressRing, toast } from '../components/ui'
 import { useStore, demoAccounts, DEMO_PASSWORD } from '../lib/store'
-
-const fadeUp = { initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-60px' }, transition: { duration: 0.5 } }
 
 /** Clearly labelled product preview — sample data, not a real student's record. */
 function HeroPreview() {
@@ -76,7 +73,7 @@ export function Landing() {
     <PublicLayout>
       <section className="mx-auto max-w-7xl px-4 pb-16 pt-14 lg:pt-20">
         <div className="grid items-center gap-10 lg:grid-cols-2">
-          <motion.div {...fadeUp}>
+          <div>
             <Badge color="indigo"><Sparkles className="mr-1 h-3 w-3" /> AI-powered homework portal</Badge>
             <h1 className="mt-4 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
               Your Homework. <span className="text-royal-500">Your Focus.</span> Your Future.
@@ -89,8 +86,8 @@ export function Landing() {
               <Link to="/features"><Button size="lg" variant="outline">Explore Features</Button></Link>
             </div>
             <p className="mt-4 text-sm text-slate-500">Free for the capstone demo · No card required · Sample accounts on the login page</p>
-          </motion.div>
-          <motion.div {...fadeUp}><HeroPreview /></motion.div>
+          </div>
+          <div><HeroPreview /></div>
         </div>
       </section>
 
@@ -103,7 +100,7 @@ export function Landing() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16">
-        <motion.h2 {...fadeUp} className="text-center font-display text-3xl font-extrabold">Everything homework needs, in one place</motion.h2>
+        <h2 className="text-center font-display text-3xl font-extrabold">Everything homework needs, in one place</h2>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {[
             { icon: BookOpen, title: 'Assignment management', body: 'Create, publish, submit, grade and give feedback — with late policies and file validation built in.' },
@@ -113,26 +110,26 @@ export function Landing() {
             { icon: CalendarDays, title: 'Study planner & calendar', body: 'Deterministic earliest-deadline-first scheduling around your real availability and breaks.' },
             { icon: Shield, title: 'Private by design', body: 'Role-based access, private submissions, guardian links by invitation only. Your focus data stays yours.' },
           ].map((f) => (
-            <motion.div key={f.title} {...fadeUp}><Card className="h-full p-6">
+            <div key={f.title}><Card className="h-full p-6">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-royal-500/10 text-royal-500"><f.icon className="h-5 w-5" /></span>
               <h3 className="mt-4 font-display text-lg font-bold">{f.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{f.body}</p>
-            </Card></motion.div>
+            </Card></div>
           ))}
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <div className="grid gap-10 lg:grid-cols-2">
-          <motion.div {...fadeUp}>
+          <div>
             <h2 className="font-display text-3xl font-extrabold">How it works</h2>
             <ol className="mt-6 space-y-4">
               {['Teacher publishes an assignment to a class.', 'Student plans study time and starts a focus session.', 'AI Tutor gives hints when they get stuck — never the finished answer.', 'Student submits; teacher grades with feedback.', 'Everyone sees only the progress they are authorised to see.'].map((s, i) => (
                 <li key={s} className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-royal-500 text-sm font-bold text-white">{i + 1}</span><span className="pt-1 text-slate-700 dark:text-slate-200">{s}</span></li>
               ))}
             </ol>
-          </motion.div>
-          <motion.div {...fadeUp}>
+          </div>
+          <div>
             <h2 className="font-display text-3xl font-extrabold">Frequently asked questions</h2>
             <div className="mt-6 space-y-3">
               {[
@@ -144,7 +141,7 @@ export function Landing() {
                 <Card key={q} className="p-5"><p className="font-semibold">{q}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{a}</p></Card>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 

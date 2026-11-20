@@ -2,25 +2,62 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { useCurrentUser } from './lib/store'
 import { AppShell, useFocusVisibility } from './components/layout'
 import { Landing, Features, HowItWorks, About, Contact, Privacy, Terms, Login, Register, ForgotPassword, NotFound } from './pages/public'
-import {
-  StudentDashboard, StudentAssignments, StudentAssignmentDetail, StudentSubmissions,
-  FocusPage, FocusHistory, AiTutor, StudyPlanner, StudentCalendar, StudentAnalytics,
-  StudentNotifications, StudentProfile, StudentSettings,
-} from './pages/student'
-import {
-  TeacherDashboard, TeacherClasses, TeacherStudents, TeacherAssignments, TeacherAssignmentCreate,
-  TeacherAssignmentDetail, TeacherSubmissions, TeacherSubmissionDetail, TeacherAnalytics,
-  TeacherAnnouncements, TeacherProfile, TeacherSettings,
-} from './pages/teacher'
-import {
-  ParentDashboard, ParentChildren, ParentAssignments, ParentProgress, ParentReports,
-  ParentNotifications, ParentSettings,
-} from './pages/parent'
-import {
-  AdminDashboard, AdminUsers, AdminClasses, AdminAssignments, AdminAnalytics,
-  AdminAiSettings, AdminSecurity, AdminSystemSettings, AdminAuditLogs,
-} from './pages/admin'
 import type { Role } from './lib/types'
+import { lazy, type ComponentType } from 'react'
+
+// Keep each role's pages (and the chart library they use) out of public routes.
+function pagesFrom<T extends Record<string, ComponentType>>(load: () => Promise<T>) {
+  return (name: keyof T) => lazy(async () => ({ default: (await load())[name] as ComponentType }))
+}
+
+const studentPage = pagesFrom(() => import('./pages/student'))
+const StudentDashboard = studentPage('StudentDashboard')
+const StudentAssignments = studentPage('StudentAssignments')
+const StudentAssignmentDetail = studentPage('StudentAssignmentDetail')
+const StudentSubmissions = studentPage('StudentSubmissions')
+const FocusPage = studentPage('FocusPage')
+const FocusHistory = studentPage('FocusHistory')
+const AiTutor = studentPage('AiTutor')
+const StudyPlanner = studentPage('StudyPlanner')
+const StudentCalendar = studentPage('StudentCalendar')
+const StudentAnalytics = studentPage('StudentAnalytics')
+const StudentNotifications = studentPage('StudentNotifications')
+const StudentProfile = studentPage('StudentProfile')
+const StudentSettings = studentPage('StudentSettings')
+
+const teacherPage = pagesFrom(() => import('./pages/teacher'))
+const TeacherDashboard = teacherPage('TeacherDashboard')
+const TeacherClasses = teacherPage('TeacherClasses')
+const TeacherStudents = teacherPage('TeacherStudents')
+const TeacherAssignments = teacherPage('TeacherAssignments')
+const TeacherAssignmentCreate = teacherPage('TeacherAssignmentCreate')
+const TeacherAssignmentDetail = teacherPage('TeacherAssignmentDetail')
+const TeacherSubmissions = teacherPage('TeacherSubmissions')
+const TeacherSubmissionDetail = teacherPage('TeacherSubmissionDetail')
+const TeacherAnalytics = teacherPage('TeacherAnalytics')
+const TeacherAnnouncements = teacherPage('TeacherAnnouncements')
+const TeacherProfile = teacherPage('TeacherProfile')
+const TeacherSettings = teacherPage('TeacherSettings')
+
+const parentPage = pagesFrom(() => import('./pages/parent'))
+const ParentDashboard = parentPage('ParentDashboard')
+const ParentChildren = parentPage('ParentChildren')
+const ParentAssignments = parentPage('ParentAssignments')
+const ParentProgress = parentPage('ParentProgress')
+const ParentReports = parentPage('ParentReports')
+const ParentNotifications = parentPage('ParentNotifications')
+const ParentSettings = parentPage('ParentSettings')
+
+const adminPage = pagesFrom(() => import('./pages/admin'))
+const AdminDashboard = adminPage('AdminDashboard')
+const AdminUsers = adminPage('AdminUsers')
+const AdminClasses = adminPage('AdminClasses')
+const AdminAssignments = adminPage('AdminAssignments')
+const AdminAnalytics = adminPage('AdminAnalytics')
+const AdminAiSettings = adminPage('AdminAiSettings')
+const AdminSecurity = adminPage('AdminSecurity')
+const AdminSystemSettings = adminPage('AdminSystemSettings')
+const AdminAuditLogs = adminPage('AdminAuditLogs')
 
 function RequireAuth({ roles }: { roles?: Role[] }) {
   const user = useCurrentUser()

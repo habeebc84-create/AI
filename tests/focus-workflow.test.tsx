@@ -5,30 +5,30 @@ import { useStore } from '../src/lib/store'
 
 const state = useStore.getState
 beforeEach(() => {
-  vi.useFakeTimers()
   state().resetDemo()
   state().login('aarav@demo.focused.ai', 'demo1234')
   window.history.replaceState({}, '', '/student/dashboard')
 })
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
-it('shows the running session and the same unfinished tasks on Home and in Focus Mode', () => {
+it('shows the running session and the same unfinished tasks on Home and in Focus Mode', async () => {
   state().startFocus('a_hist', 'History homework', 'custom', 600)
   render(<App />)
-  expect(screen.getByText('Active session')).toBeTruthy()
+  expect(await screen.findByText('Active session')).toBeTruthy()
   expect(screen.getByText('French Revolution notes')).toBeTruthy()
   fireEvent.click(screen.getByText('Return to session'))
-  expect(screen.getByText('Open homework').getAttribute('href')).toBe('/student/assignments/a_hist')
+  expect((await screen.findByText('Open homework')).getAttribute('href')).toBe('/student/assignments/a_hist')
   fireEvent.click(screen.getByLabelText('Mark French Revolution notes done'))
   fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
   expect(screen.queryByText('French Revolution notes')).toBeNull()
   expect(screen.getByText('Active session')).toBeTruthy()
 })
 
-it('reconciles hidden time, ignores switches on pause, and stops at the deadline on Home', () => {
+it('reconciles hidden time, ignores switches on pause, and stops at the deadline on Home', async () => {
+  vi.useFakeTimers()
   state().startFocus(null, 'Practice', 'custom', 10)
   const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
-  render(<App />)
+  await act(async () => { render(<App />) })
   const switchTab = (away: boolean) => act(() => { hidden.mockReturnValue(away); document.dispatchEvent(new Event('visibilitychange')) })
   switchTab(true); switchTab(true)
   act(() => vi.advanceTimersByTime(3000)); switchTab(false)
