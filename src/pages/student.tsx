@@ -1,33 +1,30 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import {
   BookOpen, Timer, Bot, CalendarDays, BarChart3, Play, Pause, CheckCircle2,
   Clock, Download, Send, Plus, Trash2, Sparkles, AlertTriangle, FileText, Search, Bell,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
-import { Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
+import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz } from '../lib/ai'
 import type { Assignment } from '../lib/types'
-
-export function PageHeader({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
-  return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="font-display text-2xl font-extrabold sm:text-3xl">{title}</h1>{sub && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sub}</p>}</div>
-      {action}
-    </div>
-  )
-}
 
 function useFocusClock() {
   const af = useStore((s) => s.activeFocus)
   const [, tick] = useState(0)
   useEffect(() => {
     if (af?.status !== 'running') return
-    const timer = setInterval(() => tick((n) => n + 1), 1000)
-    return () => clearInterval(timer)
+    let timer: number | undefined
+    const update = () => tick((n) => n + 1)
+    const sync = () => {
+      clearInterval(timer)
+      if (!document.hidden) { update(); timer = window.setInterval(update, 1000) }
+    }
+    sync()
+    document.addEventListener('visibilitychange', sync)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', sync) }
   }, [af?.status])
   const elapsed = af ? Math.floor(activeElapsedMs(af.startedAt, af.accumulatedMs, af.lastResumeAt, Date.now()) / 1000) : 0
   return { af, elapsed, remaining: af ? Math.max(0, af.plannedSeconds - elapsed) : 0 }
@@ -148,14 +145,14 @@ export function StudentAssignments() {
       {list.length === 0 ? <EmptyState title="No assignments match" body="Try clearing a filter, or check back when your teacher publishes new work." /> : (
         <div className="grid gap-4 md:grid-cols-2">
           {list.map((a) => (
-            <motion.div key={a.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div key={a.id}>
               <Card className="flex h-full flex-col p-5">
                 <div className="flex items-start justify-between gap-2"><Badge color="indigo">{a.subject}</Badge>{statusBadge(statusOf(a))}</div>
                 <h3 className="mt-3 font-display text-lg font-bold"><Link to={`/student/assignments/${a.id}`} className="hover:text-royal-500">{a.title}</Link></h3>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{a.description}</p>
                 <div className="mt-auto flex items-center justify-between pt-4 text-sm"><span className="text-slate-500">Due {fmtDateTime(a.dueAt)} · {a.maxMarks} marks</span><Link to={`/student/assignments/${a.id}`}><Button size="sm">Open</Button></Link></div>
               </Card>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
@@ -279,6 +276,22 @@ export function StudentSubmissions() {
   )
 }
 
+function FocusDial({ planned }: { planned: number }) {
+  const { af, elapsed, remaining } = useFocusClock()
+  return (
+    <div className="relative flex h-56 w-56 items-center justify-center">
+      <svg width="224" height="224" className="-rotate-90" role="img" aria-label={af ? `Focus timer: ${formatDuration(remaining)} remaining` : 'Focus timer ready'}>
+        <circle cx="112" cy="112" r="100" fill="none" strokeWidth="12" className="stroke-slate-200 dark:stroke-slate-700" />
+        <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
+      </svg>
+      <div className="absolute text-center">
+        <p className="font-mono text-5xl font-bold">{af ? formatDuration(remaining) : formatDuration(planned)}</p>
+        <p className="mt-1 text-sm text-slate-500">{af ? (!remaining ? 'Time is up' : af.status === 'running' ? 'Focusing…' : 'Paused') : 'Ready'}</p>
+      </div>
+    </div>
+  )
+}
+
 export function FocusPage() {
   const user = useCurrentUser()!
   const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents } = useStore()
@@ -289,7 +302,7 @@ export function FocusPage() {
   const [rating, setRating] = useState<number | null>(null)
   const [reflection, setReflection] = useState('')
   const [showSummary, setShowSummary] = useState(false)
-  const { af, elapsed, remaining } = useFocusClock()
+  const af = useStore((s) => s.activeFocus)
   const planned = af ? af.plannedSeconds : mode === 'pomodoro' ? focusPrefs.pomodoroMin * 60 : mode === 'short-break' ? focusPrefs.shortBreakMin * 60 : mode === 'long-break' ? focusPrefs.longBreakMin * 60 : customMin * 60
   const start = () => {
     const sessionGoal = goal.trim() || assignments.find((a) => a.id === assignmentId)?.title
@@ -305,23 +318,14 @@ export function FocusPage() {
       <PageHeader title="Focus Mode" sub="Your timer keeps running when you switch tabs. Only the number of switches and time away are recorded, not what you open." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="flex flex-col items-center p-8 text-center">
-          <div className="relative flex h-56 w-56 items-center justify-center">
-            <svg width="224" height="224" className="-rotate-90" role="img" aria-label={af ? `Focus timer: ${formatDuration(remaining)} remaining` : 'Focus timer ready'}>
-              <circle cx="112" cy="112" r="100" fill="none" strokeWidth="12" className="stroke-slate-200 dark:stroke-slate-700" />
-              <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
-            </svg>
-            <div className="absolute text-center">
-              <p className="font-mono text-5xl font-bold">{af ? formatDuration(remaining) : formatDuration(planned)}</p>
-              <p className="mt-1 text-sm text-slate-500">{af ? (!remaining ? 'Time is up' : af.status === 'running' ? 'Focusing…' : 'Paused') : 'Ready'}</p>
-            </div>
-          </div>
+          <FocusDial planned={planned} />
           {af ? (
             <div className="mt-6 w-full">
               <p className="font-semibold">{af.goal}</p>
               {af.assignmentId && <Link className="text-sm text-royal-500 underline" to={`/student/assignments/${af.assignmentId}`}>Open homework</Link>}
               <p className="text-sm text-slate-500">{af.mode} · Tab switches: {af.visibilityCount} · Away {formatDuration(af.hiddenMs / 1000)}</p>
               <div className="mt-4 flex justify-center gap-2">
-                {af.status === 'running' ? <Button onClick={pauseFocus} variant="outline"><Pause className="h-4 w-4" /> Pause</Button> : remaining > 0 && <Button onClick={resumeFocus}><Play className="h-4 w-4" /> Resume</Button>}
+                {af.status === 'running' ? <Button onClick={pauseFocus} variant="outline"><Pause className="h-4 w-4" /> Pause</Button> : af.accumulatedMs < planned * 1000 && <Button onClick={resumeFocus}><Play className="h-4 w-4" /> Resume</Button>}
                 <Button onClick={finish} variant="secondary"><CheckCircle2 className="h-4 w-4" /> Finish session</Button>
               </div>
               <div className="mx-auto mt-5 max-w-sm text-left">

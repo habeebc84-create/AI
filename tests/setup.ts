@@ -1,11 +1,4 @@
-// jsdom lacks browser APIs that framer-motion / charts rely on — stub them.
-class MockIntersectionObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-;(globalThis as unknown as { IntersectionObserver: typeof MockIntersectionObserver }).IntersectionObserver = MockIntersectionObserver
-
+// jsdom lacks some browser APIs used by the workspace charts.
 if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = (query: string) => ({
     matches: false,

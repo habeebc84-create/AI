@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { Users, BookOpen, BarChart3, FileText, Bell, Download, GraduationCap } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
-import { Button, Card, Input, Label, Badge, statusBadge, EmptyState, toast } from '../components/ui'
-import { PageHeader } from './student'
+import { PageHeader, Button, Card, Input, Label, Badge, statusBadge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
 
 function useChildren() {

@@ -382,8 +382,7 @@ export function isStaleFocusSession(startedAt: string, now = Date.now(), planned
 }
 
 export const useCurrentUser = (): User | null => {
-  const { users, currentUserId } = useStore()
-  return users.find((u) => u.id === currentUserId) ?? null
+  return useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null)
 }
 
 export function demoAccounts() {

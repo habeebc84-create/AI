@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import {
   ArrowRight, BookOpen, Timer, Bot, BarChart3, Shield, Users, CheckCircle2,
   Sparkles, CalendarDays, Bell, Search, Play, Pause, MessageSquare,
@@ -8,8 +7,6 @@ import {
 import { PublicLayout } from '../components/layout'
 import { Button, Card, Input, Label, Textarea, Badge, ProgressRing, toast } from '../components/ui'
 import { useStore, demoAccounts, DEMO_PASSWORD } from '../lib/store'
-
-const fadeUp = { initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-60px' }, transition: { duration: 0.5 } }
 
 /** Clearly labelled product preview — sample data, not a real student's record. */
 function HeroPreview() {
@@ -46,12 +43,37 @@ function HeroPreview() {
   )
 }
 
+function CocoDatasetGuide() {
+  return (
+    <section id="ms-coco" aria-labelledby="coco-title" className="mx-auto max-w-7xl px-4 pb-16">
+      <Card className="grid overflow-hidden md:grid-cols-2">
+        <div className="bg-navy-950 p-6 text-white sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-300">Study resource · Computer vision</p>
+          <h2 id="coco-title" className="mt-3 font-display text-3xl font-extrabold">MS COCO: Common Objects in Context</h2>
+          <p className="mt-3 text-slate-300">A starting point for object detection. In a street scene, a bicycle might be partly hidden behind a car. COCO shows objects in scenes like these, not just in isolation.</p>
+          <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-4 border-t border-slate-700 pt-4">
+            {[['Object classes', '80'], ['Images', '≈330,000'], ['Labeled images', '200,000+']].map(([label, value]) => (
+              <div key={label}><dt className="text-sm text-slate-300">{label}</dt><dd className="font-display text-xl font-bold">{value}</dd></div>
+            ))}
+          </dl>
+        </div>
+        <div className="space-y-4 p-6 sm:p-8">
+          <p><strong>What’s annotated?</strong> Bounding boxes locate objects, instance masks trace individual objects, keypoints mark human joints, and captions describe the scene. Choose the annotations for your task.</p>
+          <p><strong>When to use it:</strong> COCO is a standard benchmark for general-purpose detection. Real-time detectors such as YOLOv8, YOLO11 and RT-DETR offer COCO-pretrained weights you can fine-tune on your own images.</p>
+          <a href="https://cocodataset.org/#download" className="inline-flex items-center gap-2 rounded-xl bg-royal-600 px-4 py-2 font-semibold text-white hover:bg-royal-500">Download MS COCO <ArrowRight aria-hidden="true" className="h-4 w-4" /></a>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Load it with <a className="underline" href="https://docs.ultralytics.com/datasets/detect/coco/">Ultralytics</a> or <a className="underline" href="https://docs.voxel51.com/dataset_zoo/datasets.html#coco-2017">FiftyOne</a>. For downloaded images and annotations, use <a className="underline" href="https://docs.pytorch.org/vision/stable/generated/torchvision.datasets.CocoDetection.html">TorchVision’s CocoDetection</a>.</p>
+        </div>
+      </Card>
+    </section>
+  )
+}
+
 export function Landing() {
   return (
     <PublicLayout>
       <section className="mx-auto max-w-7xl px-4 pb-16 pt-14 lg:pt-20">
         <div className="grid items-center gap-10 lg:grid-cols-2">
-          <motion.div {...fadeUp}>
+          <div>
             <Badge color="indigo"><Sparkles className="mr-1 h-3 w-3" /> AI-powered homework portal</Badge>
             <h1 className="mt-4 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
               Your Homework. <span className="text-royal-500">Your Focus.</span> Your Future.
@@ -64,8 +86,8 @@ export function Landing() {
               <Link to="/features"><Button size="lg" variant="outline">Explore Features</Button></Link>
             </div>
             <p className="mt-4 text-sm text-slate-500">Free for the capstone demo · No card required · Sample accounts on the login page</p>
-          </motion.div>
-          <motion.div {...fadeUp}><HeroPreview /></motion.div>
+          </div>
+          <div><HeroPreview /></div>
         </div>
       </section>
 
@@ -78,7 +100,7 @@ export function Landing() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16">
-        <motion.h2 {...fadeUp} className="text-center font-display text-3xl font-extrabold">Everything homework needs, in one place</motion.h2>
+        <h2 className="text-center font-display text-3xl font-extrabold">Everything homework needs, in one place</h2>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {[
             { icon: BookOpen, title: 'Assignment management', body: 'Create, publish, submit, grade and give feedback — with late policies and file validation built in.' },
@@ -88,26 +110,26 @@ export function Landing() {
             { icon: CalendarDays, title: 'Study planner & calendar', body: 'Deterministic earliest-deadline-first scheduling around your real availability and breaks.' },
             { icon: Shield, title: 'Private by design', body: 'Role-based access, private submissions, guardian links by invitation only. Your focus data stays yours.' },
           ].map((f) => (
-            <motion.div key={f.title} {...fadeUp}><Card className="h-full p-6">
+            <div key={f.title}><Card className="h-full p-6">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-royal-500/10 text-royal-500"><f.icon className="h-5 w-5" /></span>
               <h3 className="mt-4 font-display text-lg font-bold">{f.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{f.body}</p>
-            </Card></motion.div>
+            </Card></div>
           ))}
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <div className="grid gap-10 lg:grid-cols-2">
-          <motion.div {...fadeUp}>
+          <div>
             <h2 className="font-display text-3xl font-extrabold">How it works</h2>
             <ol className="mt-6 space-y-4">
               {['Teacher publishes an assignment to a class.', 'Student plans study time and starts a focus session.', 'AI Tutor gives hints when they get stuck — never the finished answer.', 'Student submits; teacher grades with feedback.', 'Everyone sees only the progress they are authorised to see.'].map((s, i) => (
                 <li key={s} className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-royal-500 text-sm font-bold text-white">{i + 1}</span><span className="pt-1 text-slate-700 dark:text-slate-200">{s}</span></li>
               ))}
             </ol>
-          </motion.div>
-          <motion.div {...fadeUp}>
+          </div>
+          <div>
             <h2 className="font-display text-3xl font-extrabold">Frequently asked questions</h2>
             <div className="mt-6 space-y-3">
               {[
@@ -119,9 +141,11 @@ export function Landing() {
                 <Card key={q} className="p-5"><p className="font-semibold">{q}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{a}</p></Card>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
+
+      <CocoDatasetGuide />
 
       <section className="bg-navy-950 py-16 text-white">
         <div className="mx-auto max-w-4xl px-4 text-center">

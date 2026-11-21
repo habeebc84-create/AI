@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { X, CheckCircle2, AlertTriangle, Info } from 'lucide-react'
 
 export function toast(message: string, kind: 'success' | 'error' | 'info' = 'success') {
@@ -19,15 +18,13 @@ export function Toaster() {
   }, [])
   return (
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2" role="status" aria-live="polite">
-      <AnimatePresence>
-        {items.map((t) => (
-          <motion.div key={t.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
-            className="flex items-center gap-2 rounded-xl bg-navy-950 px-4 py-3 text-sm font-medium text-white shadow-xl">
-            {t.kind === 'success' ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : t.kind === 'error' ? <AlertTriangle className="h-4 w-4 text-rose-400" /> : <Info className="h-4 w-4 text-cyan-400" />}
-            {t.message}
-          </motion.div>
-        ))}
-      </AnimatePresence>
+      {items.map((t) => (
+        <div key={t.id}
+          className="enter-surface flex items-center gap-2 rounded-xl bg-navy-950 px-4 py-3 text-sm font-medium text-white shadow-xl">
+          {t.kind === 'success' ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : t.kind === 'error' ? <AlertTriangle className="h-4 w-4 text-rose-400" /> : <Info className="h-4 w-4 text-cyan-400" />}
+          {t.message}
+        </div>
+      ))}
     </div>
   )
 }
@@ -122,21 +119,26 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
     if (open) window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [open, onClose])
+  if (!open) return null
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
-          <motion.div initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }} onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-900">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
-              <button onClick={onClose} aria-label="Close dialog" className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-navy-800"><X className="h-5 w-5" /></button>
-            </div>
-            {children}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <div onClick={(e) => e.stopPropagation()}
+        className="enter-surface w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-900">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
+          <button onClick={onClose} aria-label="Close dialog" className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-navy-800"><X className="h-5 w-5" /></button>
+        </div>
+        {children}
+      </div>
+    </div>
   )
 }
 
+export function PageHeader({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div><h1 className="font-display text-2xl font-extrabold sm:text-3xl">{title}</h1>{sub && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sub}</p>}</div>
+      {action}
+    </div>
+  )
+}
