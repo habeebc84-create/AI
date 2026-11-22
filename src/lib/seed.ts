@@ -5,12 +5,12 @@ import type {
 import { uid } from './utils'
 
 const day = 86400000
-const now = Date.now()
 const iso = (ms: number) => new Date(ms).toISOString()
 
 export const DEMO_PASSWORD = 'demo1234'
 
 export function buildSeed() {
+  const now = Date.now()
   const student: User = { id: 'u_aarav', name: 'Aarav Sharma', email: 'aarav@demo.focused.ai', password: DEMO_PASSWORD, role: 'student', school: 'Sunrise Public School', grade: 'Class 10', classId: 'c_10a', subjects: ['Mathematics', 'Science', 'English', 'History'], createdAt: iso(now - 60 * day) }
   const teacher: User = { id: 'u_priya', name: 'Ms. Priya Nair', email: 'priya@demo.focused.ai', password: DEMO_PASSWORD, role: 'teacher', school: 'Sunrise Public School', department: 'Mathematics', createdAt: iso(now - 90 * day) }
   const parent: User = { id: 'u_rohit', name: 'Rohit Sharma', email: 'rohit@demo.focused.ai', password: DEMO_PASSWORD, role: 'parent', school: 'Sunrise Public School', childrenIds: ['u_aarav'], createdAt: iso(now - 60 * day) }

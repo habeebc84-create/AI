@@ -58,7 +58,7 @@ interface AppState extends SeedData {
   updateAssignment: (id: string, patch: Partial<Assignment>) => void
   publishAssignment: (id: string) => void
   // submissions
-  saveDraft: (assignmentId: string, studentId: string, text: string, files: Submission['files']) => void
+  saveDraft: (assignmentId: string, studentId: string, text: string, files: Submission['files']) => { ok: boolean; error?: string }
   submitAssignment: (assignmentId: string, studentId: string, text: string, files: Submission['files']) => { ok: boolean; error?: string; late?: boolean }
   gradeSubmission: (id: string, grade: number, feedback: string) => void
   returnForRevision: (id: string, feedback: string) => void
@@ -121,6 +121,25 @@ const safeLocalStorage = {
   },
 }
 
+function filesFitBudget(submissions: Submission[], existing: Submission | undefined, files: Submission['files']) {
+  const otherBytes = submissions.reduce((total, submission) =>
+    total + (submission.id === existing?.id ? 0 : storedFileBytes(submission.files)), 0)
+  return otherBytes + storedFileBytes(files) <= LOCAL_FILE_BUDGET_BYTES
+}
+
+const fileBudgetError = 'Not enough local storage on this computer for these files. Remove an attachment and try again.'
+
+function notifyAssignmentPublished(state: AppState, assignment: Assignment) {
+  const classroom = state.classes.find((item) => item.id === assignment.classId)
+  classroom?.studentIds.forEach((userId) => state.notify({
+    userId,
+    type: 'assignment',
+    title: `New assignment: ${assignment.title}`,
+    body: `${assignment.subject} — due ${new Date(assignment.dueAt).toLocaleDateString()}.`,
+    link: `/student/assignments/${assignment.id}`,
+  }))
+}
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -148,7 +167,11 @@ export const useStore = create<AppState>()(
         if (password.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' }
         const user: User = { id: uid('u'), name, email: email.trim(), password, role: 'student', school: school || 'Sunrise Public School', grade, classId: 'c_10a', subjects: ['Mathematics', 'Science', 'English'], createdAt: new Date().toISOString() }
         if (get().activeFocus) get().finishFocus(null, '')
-        set((s) => ({ users: [...s.users, user], currentUserId: user.id }))
+        set((s) => ({
+          users: [...s.users, user],
+          currentUserId: user.id,
+          classes: s.classes.map((c) => c.id === user.classId ? { ...c, studentIds: [...c.studentIds, user.id] } : c),
+        }))
         get().audit(user.id, 'auth.register', `${name} registered as a student.`)
         return { ok: true }
       },
@@ -166,29 +189,36 @@ export const useStore = create<AppState>()(
         const id = uid('a')
         const assignment: Assignment = { ...a, id, attachments: a.attachments ?? [], createdAt: new Date().toISOString() }
         set((s) => ({ assignments: [assignment, ...s.assignments] }))
-        const cls = get().classes.find((c) => c.id === a.classId)
-        cls?.studentIds.forEach((sid) => get().notify({ userId: sid, type: 'assignment', title: `New assignment: ${a.title}`, body: `${a.subject} — due ${new Date(a.dueAt).toLocaleDateString()}.`, link: `/student/assignments/${id}` }))
+        if (a.status === 'published') notifyAssignmentPublished(get(), assignment)
         get().audit(a.teacherId, 'assignment.create', `Created “${a.title}” (${a.status}).`)
         return id
       },
       updateAssignment: (id, patch) => set((s) => ({ assignments: s.assignments.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
       publishAssignment: (id) => {
         const a = get().assignments.find((x) => x.id === id)
-        if (!a) return
+        if (a?.status !== 'draft') return
         get().updateAssignment(id, { status: 'published' })
-        const cls = get().classes.find((c) => c.id === a.classId)
-        cls?.studentIds.forEach((sid) => get().notify({ userId: sid, type: 'assignment', title: `New assignment: ${a.title}`, body: `${a.subject} — due ${new Date(a.dueAt).toLocaleDateString()}.`, link: `/student/assignments/${id}` }))
+        notifyAssignmentPublished(get(), a)
         get().audit(a.teacherId, 'assignment.publish', `Published “${a.title}”.`)
       },
 
       saveDraft: (assignmentId, studentId, text, files) => {
-        const existing = get().submissions.find((s) => s.assignmentId === assignmentId && s.studentId === studentId)
+        const { assignments, submissions } = get()
+        if (!assignments.some((a) => a.id === assignmentId && a.status === 'published')) {
+          return { ok: false, error: 'This assignment is unavailable.' }
+        }
+        const existing = submissions.find((s) => s.assignmentId === assignmentId && s.studentId === studentId)
+        if (existing?.submittedAt && !existing.returnedForRevision) {
+          return { ok: false, error: 'This submission is awaiting review or has already been graded.' }
+        }
+        if (!filesFitBudget(submissions, existing, files)) return { ok: false, error: fileBudgetError }
         if (existing) {
           set((s) => ({ submissions: s.submissions.map((x) => (x.id === existing.id ? { ...x, text, files, status: 'in-progress', updatedAt: new Date().toISOString() } : x)) }))
         } else {
           const sub: Submission = { id: uid('s'), assignmentId, studentId, text, files, status: 'in-progress', submittedAt: null, isLate: false, grade: null, feedback: '', returnedForRevision: false, updatedAt: new Date().toISOString() }
           set((s) => ({ submissions: [...s.submissions, sub] }))
         }
+        return { ok: true }
       },
       submitAssignment: (assignmentId, studentId, text, files) => {
         const a = get().assignments.find((x) => x.id === assignmentId)
@@ -198,38 +228,35 @@ export const useStore = create<AppState>()(
         const late = new Date() > new Date(a.dueAt)
         if (late && a.latePolicy === 'reject') return { ok: false, error: 'The deadline has passed and late submissions are not accepted for this assignment.' }
         const existing = get().submissions.find((s) => s.assignmentId === assignmentId && s.studentId === studentId)
-        // Local storage budget: file contents live on this computer, so the
-        // total stored bytes must stay inside the browser's quota.
-        const alreadyStored = get().submissions
-          .filter((s) => s.id !== existing?.id)
-          .reduce((n, s) => n + storedFileBytes(s.files), 0)
-        if (alreadyStored + storedFileBytes(files) > LOCAL_FILE_BUDGET_BYTES) {
-          return { ok: false, error: 'Not enough local storage on this computer for these files. Remove a large attachment or delete an older submission file first.' }
+        if (existing?.submittedAt && !existing.returnedForRevision) {
+          return { ok: false, error: 'This submission is awaiting review or has already been graded.' }
         }
+        if (!filesFitBudget(get().submissions, existing, files)) return { ok: false, error: fileBudgetError }
         const nowIso = new Date().toISOString()
         if (existing) {
-          set((s) => ({ submissions: s.submissions.map((x) => (x.id === existing.id ? { ...x, text, files, status: late ? 'late' : 'submitted', submittedAt: nowIso, isLate: late, returnedForRevision: false, updatedAt: nowIso } : x)) }))
+          set((s) => ({ submissions: s.submissions.map((x) => (x.id === existing.id ? { ...x, text, files, status: late ? 'late' : 'submitted', submittedAt: nowIso, isLate: late, grade: null, returnedForRevision: false, updatedAt: nowIso } : x)) }))
         } else {
           const sub: Submission = { id: uid('s'), assignmentId, studentId, text, files, status: late ? 'late' : 'submitted', submittedAt: nowIso, isLate: late, grade: null, feedback: '', returnedForRevision: false, updatedAt: nowIso }
           set((s) => ({ submissions: [...s.submissions, sub] }))
         }
         get().notify({ userId: a.teacherId, type: 'submission', title: 'New submission received', body: `${get().users.find((u) => u.id === studentId)?.name ?? 'A student'} submitted “${a.title}”.`, link: '/teacher/submissions' })
-        get().notify({ userId: studentId, type: 'submission', title: 'Submission confirmed', body: `“${a.title}” was submitted${late ? ' late (penalty may apply)' : ''}.`, link: '/student/submissions' })
+        get().notify({ userId: studentId, type: 'submission', title: 'Submission confirmed', body: `“${a.title}” was submitted${late ? (a.latePolicy === 'accept-penalty' ? ' late (penalty may apply)' : ' late') : ''}.`, link: '/student/submissions' })
         get().audit(studentId, 'submission.submit', `Submitted “${a.title}”${late ? ' (late)' : ''}.`)
         return { ok: true, late }
       },
       gradeSubmission: (id, grade, feedback) => {
         const sub = get().submissions.find((s) => s.id === id)
-        if (!sub) return
+        if (!sub?.submittedAt || sub.returnedForRevision) return
         const a = get().assignments.find((x) => x.id === sub.assignmentId)
+        if (!a || !Number.isFinite(grade) || grade < 0 || grade > a.maxMarks) return
         set((s) => ({ submissions: s.submissions.map((x) => (x.id === id ? { ...x, grade, feedback, status: 'completed', updatedAt: new Date().toISOString() } : x)) }))
         get().notify({ userId: sub.studentId, type: 'grade', title: `Grade published: ${a?.title ?? 'Assignment'}`, body: `You scored ${grade}/${a?.maxMarks ?? '—'}. Feedback is available.`, link: '/student/submissions' })
-        const link = get().guardianLinks.find((g) => g.studentId === sub.studentId && g.status === 'accepted')
-        if (link) get().notify({ userId: link.parentId, type: 'grade', title: `${get().users.find((u) => u.id === sub.studentId)?.name} scored ${grade}/${a?.maxMarks ?? '—'}`, body: `${a?.title ?? 'Assignment'} graded.`, link: '/parent/progress' })
+        const guardians = get().guardianLinks.filter((g) => g.studentId === sub.studentId && g.status === 'accepted')
+        for (const link of guardians) get().notify({ userId: link.parentId, type: 'grade', title: `${get().users.find((u) => u.id === sub.studentId)?.name} scored ${grade}/${a?.maxMarks ?? '—'}`, body: `${a?.title ?? 'Assignment'} graded.`, link: '/parent/progress' })
       },
       returnForRevision: (id, feedback) => {
         const sub = get().submissions.find((s) => s.id === id)
-        if (!sub) return
+        if (!sub?.submittedAt || sub.returnedForRevision) return
         set((s) => ({ submissions: s.submissions.map((x) => (x.id === id ? { ...x, feedback, returnedForRevision: true, status: 'in-progress', grade: null, updatedAt: new Date().toISOString() } : x)) }))
         get().notify({ userId: sub.studentId, type: 'feedback', title: 'Work returned for revision', body: feedback, link: '/student/submissions' })
       },

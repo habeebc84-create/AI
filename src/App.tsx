@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useCurrentUser } from './lib/store'
 import { AppShell, useFocusVisibility } from './components/layout'
 import { Landing, Features, HowItWorks, About, Contact, Privacy, Terms, Login, Register, ForgotPassword, NotFound } from './pages/public'
@@ -77,10 +77,13 @@ function RoleHome() {
   return <Navigate to={user.role === 'student' ? '/student/dashboard' : user.role === 'teacher' ? '/teacher/dashboard' : user.role === 'parent' ? '/parent/dashboard' : '/admin/dashboard'} replace />
 }
 
+// GitHub Pages serves static files. Keep workspace routes in the URL fragment there.
+const Router = import.meta.env.MODE === 'github-pages' ? HashRouter : BrowserRouter
+
 export default function App() {
   useFocusVisibility()
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/features" element={<Features />} />
@@ -161,6 +164,6 @@ export default function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   )
 }
