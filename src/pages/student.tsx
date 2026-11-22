@@ -9,7 +9,8 @@ import { useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz } from '../lib/ai'
-import type { Assignment } from '../lib/types'
+import { REFERENCE_BOOKS } from '../lib/reference'
+import type { Assignment, User } from '../lib/types'
 
 function useFocusClock() {
   const af = useStore((s) => s.activeFocus)
@@ -276,6 +277,87 @@ export function StudentSubmissions() {
   )
 }
 
+function FocusAssessmentWorkspace({ user }: { user: User }) {
+  const { assignments, submissions, saveDraft, activeFocus } = useStore()
+  const [selectedId, setSelectedId] = useState('')
+  const published = assignments.filter((a) => a.status === 'published' && a.classId === user.classId)
+  const effectiveId = selectedId || activeFocus?.assignmentId || ''
+  const selected = published.find((a) => a.id === effectiveId)
+  const existing = selected ? submissions.find((s) => s.assignmentId === selected.id && s.studentId === user.id) : undefined
+  const book = selected ? REFERENCE_BOOKS.find((b) => b.subject === selected.subject) : undefined
+  const [answer, setAnswer] = useState('')
+  useEffect(() => { setAnswer(existing?.text ?? '') }, [existing?.id, selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <section className="mt-4" aria-labelledby="focus-assessments-title">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="focus-assessments-title" className="font-display text-lg font-bold">Assessments</h2>
+            <Badge color="indigo">{published.length} published</Badge>
+          </div>
+          <p className="text-sm text-slate-500">Every published assessment for your class — open one here without leaving Focus Mode.</p>
+          <div className="mt-3 max-h-56 space-y-2 overflow-auto pr-1">
+            {published.map((a) => {
+              const sub = submissions.find((s) => s.assignmentId === a.id && s.studentId === user.id)
+              const active = selected?.id === a.id
+              return (
+                <button key={a.id} type="button" onClick={() => setSelectedId(a.id)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left text-sm ${active ? 'border-royal-500 bg-royal-500/5' : 'border-slate-200 hover:border-royal-400 dark:border-slate-700'}`}>
+                  <span className="min-w-0"><span className="block truncate font-semibold">{a.title}</span><span className="text-xs text-slate-500">{a.subject} · {a.maxMarks} marks · due {fmtDate(a.dueAt)}</span></span>
+                  {statusBadge(sub?.status ?? 'not-started')}
+                </button>
+              )
+            })}
+            {!published.length && <p className="text-sm text-slate-500">No published assessments yet.</p>}
+          </div>
+          {selected && (
+            <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm dark:bg-navy-800">
+              <p className="font-semibold">Instructions</p>
+              <p className="mt-1 whitespace-pre-line text-slate-600 dark:text-slate-300">{selected.instructions}</p>
+              {selected.rubric && <p className="mt-2 text-slate-500"><strong>Rubric:</strong> {selected.rubric}</p>}
+            </div>
+          )}
+        </Card>
+        <Card className="p-5">
+          <h2 className="font-display text-lg font-bold">Reference book</h2>
+          {!selected ? <p className="mt-2 text-sm text-slate-500">Choose an assessment to see the matching reference pages here.</p>
+            : !book ? <p className="mt-2 text-sm text-slate-500">There is no reference book for {selected.subject} yet.</p>
+              : (
+                <>
+                  <p className="text-sm text-slate-500">{book.title} — read it here while you write.</p>
+                  <div className="mt-3 max-h-72 space-y-3 overflow-auto pr-1">
+                    {book.sections.map((section) => (
+                      <div key={section.heading}>
+                        <p className="font-semibold">{section.heading}</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">{section.facts.map((f) => <li key={f}>{f}</li>)}</ul>
+                        <p className="mt-1 text-xs text-slate-500">Hint: {section.hint}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <a href={book.file} download className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-navy-800">
+                    <Download className="h-4 w-4" /> Download {book.title} PDF
+                  </a>
+                </>
+              )}
+        </Card>
+      </div>
+      <Card className="mt-4 p-5">
+        <h2 className="font-display text-lg font-bold">Your answer</h2>
+        <p className="text-sm text-slate-500">Type here while the reference is open. Drafts stay on this computer.</p>
+        <div className="mt-3 max-w-3xl">
+          <Label htmlFor="focus-answer">{selected ? `Answer for ${selected.title}` : 'Answer'}</Label>
+          <Textarea id="focus-answer" rows={6} value={answer} disabled={!selected} onChange={(e) => setAnswer(e.target.value)}
+            placeholder={selected ? 'Write your answer, using the reference book above…' : 'Select an assessment first.'} />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button disabled={!selected} onClick={() => { if (!selected) return; saveDraft(selected.id, user.id, answer, existing?.files ?? []); toast('Draft saved — it appears under Submissions.') }}>Save draft</Button>
+          {existing?.submittedAt && <span className="text-xs text-slate-500">Already submitted — saving here replaces the draft text.</span>}
+        </div>
+      </Card>
+    </section>
+  )
+}
+
 function FocusDial({ planned }: { planned: number }) {
   const { af, elapsed, remaining } = useFocusClock()
   return (
@@ -355,6 +437,7 @@ export function FocusPage() {
           {showSummary && <div className="mt-5 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-900/20"><p className="font-semibold text-emerald-700 dark:text-emerald-300">Session complete — well done.</p><p className="mt-1 text-sm"><Link to="/student/focus/history" className="underline">View your saved session in Focus History</Link>.</p></div>}
         </div>
       </div>
+      <FocusAssessmentWorkspace user={user} />
     </div>
   )
 }

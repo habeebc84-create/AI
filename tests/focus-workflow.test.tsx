@@ -24,6 +24,17 @@ it('shows the running session and locks other tabs until it is finished', async 
   expect(screen.getByText('Open homework')).toBeTruthy()
 })
 
+it('lists assessments and lets a focused student type with the reference book open', async () => {
+  state().startFocus('a_quad', 'Quadratic practice', 'custom', 900)
+  render(<App />)
+  fireEvent.click(await screen.findByText('Return to session'))
+  fireEvent.click(await screen.findByRole('button', { name: /Quadratic Equations — Problem Set 4/ }))
+  expect(screen.getByText('Quadratic equations')).toBeTruthy()
+  fireEvent.change(screen.getByLabelText(/Answer for Quadratic Equations/), { target: { value: 'Using the discriminant first…' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  expect(state().submissions.find((s) => s.assignmentId === 'a_quad' && s.studentId === 'u_aarav')?.text).toBe('Using the discriminant first…')
+})
+
 it('reconciles hidden time, ignores switches on pause, and stops at the deadline on Home', async () => {
   vi.useFakeTimers()
   state().startFocus(null, 'Practice', 'custom', 10)
