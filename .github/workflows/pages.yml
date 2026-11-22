@@ -24,12 +24,12 @@ jobs:
       - run: npm test
       - run: npm run build -- --mode github-pages --base "/${{ github.event.repository.name }}/"
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event.repository.has_pages
         with:
           path: dist
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event.repository.has_pages
     needs: build
     runs-on: ubuntu-latest
     permissions:

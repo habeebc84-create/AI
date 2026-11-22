@@ -1,21 +1,22 @@
 # FocusEd AI
 
-An AI-powered homework portal for schools — assignments, submissions and
-grading, a focus timer, study goals and weekly plans, an AI tutor, and
-parent visibility, all scoped per institution with Row Level Security.
+FocusEd AI is a college capstone demo for assignments, grading, focused study,
+reference-book tutoring, and linked-parent progress. The demo runs on Vercel
+and stores its accounts and records in one browser profile.
 
-## Status (honest)
+[Open the demo](https://focused-ai.vercel.app/login)
 
-| Area | State |
-|---|---|
-| Frontend (React + Vite) | Built in parallel by another agent in `src/` |
-| Database schema (28 tables, RLS) | ✅ Written — `supabase/migrations/0001_init.sql` |
-| Demo seed data | ✅ Written — `supabase/seed.sql` |
-| Edge Functions (5) | ✅ Written — `supabase/functions/*` |
-| Docs | ✅ Written — `docs/` |
-| RLS negative tests | ✅ Written, **not yet run** — `tests/security/rls-negative-tests.sql` |
-| Live Supabase project | ❌ **Not connected — by design.** Storage is local-only (see below); the Supabase files are kept as an optional future, nothing is deployed or tested against a hosted DB |
-| Runnable today | ✅ **Local-only storage** (localStorage on this computer, no backend needed) |
+## Submission and capacity
+
+Run the tests and build with Node.js 24 and the locked Bun dependencies.
+The capacity regression creates a class of 100 student accounts, publishes
+three assignments, accepts 100 text submissions, and checks that coursework
+and alerts persist after reload. This verifies the browser-local demo workflow.
+
+A shared deployment for 100 people on separate devices still needs frontend
+integration with hosted authentication, a database and file storage, followed
+by role-isolation and concurrent end-to-end tests. The repository includes
+Supabase schema and function prototypes for that work.
 
 ## Quick start (local-only storage — no setup)
 
@@ -53,7 +54,7 @@ npm test        # frontend test suite (Vitest)
 
 ## Storage: local-only by design
 
-All data lives on this computer, in the browser's localStorage — accounts, assignments, submissions (including uploaded file contents up to 2 MB per file, 4 MB total), focus sessions, and messages. Nothing is sent to a server. The Supabase schema, seed, and Edge Functions in `supabase/` are kept as an optional future and are not wired in.
+All data lives on this computer, in the browser's localStorage — accounts, assignments, submissions (including uploaded file contents up to 2 MB per file, 3 MB total), focus sessions, and messages. Nothing is sent to a server. The Supabase schema, seed, and Edge Functions in `supabase/` are kept as an optional future and are not wired in.
 
 | | Local-only (current) | Supabase (optional future) |
 |---|---|---|
@@ -61,16 +62,14 @@ All data lives on this computer, in the browser's localStorage — accounts, ass
 | Auth | sample account picker | Supabase Auth (email/password) |
 | AI tutor | scripted guided hints | `ai-tutor` Edge Function + OpenAI / Gemini / Anthropic |
 | Notifications | local | `notification-worker` Edge Function (cron) |
-| Requires | nothing | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (see `.env.example`) |
+| Requires | a browser | a hosted project and frontend integration |
 
 ## Architecture
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full picture.
-In short: React frontend → Supabase (Postgres + Auth + Edge Functions) →
-AI providers (server-side keys only). RLS enforces that students see only
-their own records + their classes' assignments, teachers see only their
-classes/submissions, parents see only linked children, and admins are
-institution-scoped.
+The deployed demo is a React/Vite application with browser-local persistence.
+The proposed shared architecture uses Supabase Auth, Postgres row-level
+security, Storage and Edge Functions. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 - [`docs/DATABASE.md`](docs/DATABASE.md) — all 28 tables, indexes, RLS model, seed data
 - [`docs/SETUP.md`](docs/SETUP.md) — local + hosted setup
@@ -97,15 +96,10 @@ tests/security/rls-negative-tests.sql
 
 ## Deployment (summary)
 
-1. `npm run build`
-2. Deploy the frontend to Vercel with `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_ANON_KEY` set.
-3. `supabase link`, `supabase db push`, deploy the five functions,
-   set server secrets (`SUPABASE_SERVICE_ROLE_KEY`, provider keys,
-   `CRON_SECRET`).
-4. Schedule `notification-worker` hourly with the cron secret.
-5. Run the RLS negative tests and the post-deploy checks in
-   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Run `npm test` and `npm run build`, then deploy the generated `dist/`
+directory to Vercel. The browser demo requires no backend environment values.
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the GitHub Pages workflow
+and the proposed backend setup.
 
 ## Security notes
 

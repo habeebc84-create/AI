@@ -1,7 +1,7 @@
 # FocusEd AI — Setup
 
 ## Prerequisites
-- Node.js 22.12+ and npm
+- Node.js 24 and npm
 - Supabase CLI (`npm i -g supabase`) and Docker (for local Supabase only)
 - A Supabase account (for the hosted path only)
 
@@ -18,7 +18,7 @@ Open http://localhost:5173 and pick a demo account:
 student (Aarav Sharma), teacher (Ms. Priya Nair), parent, or admin.
 All data lives in localStorage; nothing leaves the browser.
 
-## 2. Local Supabase (real mode, on your machine)
+## 2. Local Supabase backend prototype
 
 ```bash
 supabase start          # requires Docker; first run downloads images
@@ -45,7 +45,7 @@ cp .env.example .env
 npm run dev
 ```
 
-## 3. Hosted Supabase project
+## 3. Hosted Supabase backend prototype
 
 1. Create a project at https://supabase.com/dashboard.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`, then the
@@ -55,7 +55,7 @@ npm run dev
    `VITE_SUPABASE_ANON_KEY`, and the server-side
    `SUPABASE_SERVICE_ROLE_KEY` (as a Supabase secret, never in the
    frontend `.env` that ships to the browser — see `SECURITY.md`).
-5. `npm run dev` — the app now uses the real client instead of Demo Mode.
+5. Connect the frontend account, assignment and submission flows to the backend before using shared mode. The current frontend runs in browser-local demo mode, including when these environment values are set.
 
 ## 4. Verify
 
@@ -68,8 +68,7 @@ npm run dev
 
 ## Troubleshooting
 - **"Invalid API key" in the browser:** `VITE_SUPABASE_URL` /
-  `VITE_SUPABASE_ANON_KEY` are missing or wrong — the app falls back to
-  Demo Mode; check `.env` and restart `npm run dev`.
+  `VITE_SUPABASE_ANON_KEY` are missing or wrong — check `.env` when testing the backend prototype.
 - **Seed fails on `profiles` FK:** the Auth users don't exist yet (see
   step 2 caveat).
 - **`supabase start` fails:** Docker is not running.

@@ -193,3 +193,40 @@ it('connects newly added roles through class enrolment, publishing, grading and 
   signIn('new-admin@example.com')
   expect(state().auditLogs.some((log) => log.action === 'class.enroll')).toBe(true)
 })
+
+it('preserves coursework and assignment alerts for a 100-student class after reload', async () => {
+  const state = useStore.getState
+  expect(state().login('admin@demo.focused.ai', 'demo1234').ok).toBe(true)
+  expect(state().addClass('Capacity class', 'Class 10', 'Science', 'u_priya').ok).toBe(true)
+  const classroom = state().classes.find((item) => item.name === 'Capacity class')!
+  for (let index = 0; index < 100; index++) {
+    expect(state().addAccount(`Student ${index}`, `capacity-${index}@example.com`, 'demo1234', 'student', classroom.id).ok).toBe(true)
+  }
+  const students = state().users.filter((user) => user.classId === classroom.id)
+  expect(students).toHaveLength(100)
+
+  expect(state().login('priya@demo.focused.ai', 'demo1234').ok).toBe(true)
+  const assignmentIds = Array.from({ length: 3 }, (_, index) => state().createAssignment({
+    teacherId: 'u_priya', classId: classroom.id, title: `Capacity assignment ${index}`,
+    description: '', instructions: 'Submit your response.', subject: 'Science',
+    dueAt: new Date(Date.now() + 86400000).toISOString(), maxMarks: 10,
+    submissionFormat: 'Text response', status: 'published', latePolicy: 'accept',
+  }))
+  for (const student of students) {
+    expect(state().login(student.email, 'demo1234').ok).toBe(true)
+    expect(state().submitAssignment(assignmentIds[0], student.id, 'My coursework.', []).ok).toBe(true)
+  }
+  await useStore.persist.rehydrate()
+  expect(state().submissions.filter((item) => item.assignmentId === assignmentIds[0])).toHaveLength(100)
+  for (const student of students) {
+    expect(state().notifications.filter((item) => item.userId === student.id && item.type === 'assignment')).toHaveLength(3)
+  }
+})
+
+it('ignores malformed persisted collections and preserves the store actions', async () => {
+  const key = useStore.persist.getOptions().name
+  localStorage.setItem(key, JSON.stringify({ version: 1, state: { users: null, assignments: [null], login: 'corrupt' } }))
+  await useStore.persist.rehydrate()
+  expect(useStore.getState().login('aarav@demo.focused.ai', 'demo1234').ok).toBe(true)
+  expect(useStore.getState().assignments.length).toBeGreaterThan(0)
+})

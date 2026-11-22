@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { completionRate, formatDuration, formatMinutes, activeElapsedMs, validateUploadFile, deriveSubmissionStatus, buildStudyPlan, readFileAsDataUrl, storedFileBytes, dataUrlToBlob, MAX_STORED_FILE_BYTES } from '../src/lib/utils'
+import { csvCell, completionRate, formatDuration, formatMinutes, activeElapsedMs, validateUploadFile, deriveSubmissionStatus, buildStudyPlan, readFileAsDataUrl, storedFileBytes, dataUrlToBlob, MAX_STORED_FILE_BYTES } from '../src/lib/utils'
 import { generateTutorReply, generateQuiz } from '../src/lib/ai'
 
 describe('completionRate', () => {
@@ -16,7 +16,7 @@ describe('formatDuration', () => {
 
 describe('activeElapsedMs (timestamp-based timer)', () => {
   it('adds time since last resume to accumulated time', () => {
-    const start = new Date('2026-11-19T10:00:00Z').toISOString()
+    const start = new Date('2026-11-19T20:00:00').toISOString()
     const resume = new Date('2026-11-19T10:05:00Z').toISOString()
     const now = new Date('2026-11-19T10:10:00Z').getTime()
     expect(activeElapsedMs(start, 60000, resume, now)).toBe(60000 + 5 * 60000)
@@ -44,7 +44,7 @@ describe('buildStudyPlan (deterministic scheduler)', () => {
     const blocks = buildStudyPlan(
       [
         { assignmentId: 'b', title: 'Later', dueAt: '2026-11-21T10:00:00Z', estMinutes: 30 },
-        { assignmentId: 'a', title: 'Sooner', dueAt: '2026-11-19T10:00:00Z', estMinutes: 30 },
+        { assignmentId: 'a', title: 'Sooner', dueAt: '2026-11-19T20:00:00', estMinutes: 30 },
       ],
       ['2026-11-19', '2026-11-20'], 16 * 60, 20 * 60, 10,
     )
@@ -53,12 +53,32 @@ describe('buildStudyPlan (deterministic scheduler)', () => {
   })
   it('splits long tasks into 50-minute blocks', () => {
     const blocks = buildStudyPlan(
-      [{ assignmentId: 'a', title: 'Big', dueAt: '2026-11-19T10:00:00Z', estMinutes: 120 }],
+      [{ assignmentId: 'a', title: 'Big', dueAt: '2026-11-19T20:00:00', estMinutes: 120 }],
       ['2026-11-19'], 16 * 60, 20 * 60, 10,
     )
     expect(blocks.length).toBe(3)
     expect(blocks.every((b) => b.durationMin <= 50)).toBe(true)
   })
+})
+
+it('uses only the remaining local study window before an assignment deadline', () => {
+  const blocks = buildStudyPlan(
+    [
+      { assignmentId: 'past', title: 'Past', dueAt: '2026-11-19T16:00:00', estMinutes: 30 },
+      { assignmentId: 'today', title: 'Today', dueAt: '2026-11-19T17:00:00', estMinutes: 90 },
+      { assignmentId: 'later', title: 'Later', dueAt: '2026-11-20T20:00:00', estMinutes: 20 },
+    ],
+    ['2026-11-19', '2026-11-20'], 16 * 60, 20 * 60, 10, new Date('2026-11-19T16:30:30'),
+  )
+  expect(blocks[0]).toMatchObject({ assignmentId: 'today', startMin: 991, durationMin: 29 })
+  expect(blocks.every((block) => block.assignmentId !== 'past')).toBe(true)
+  expect(blocks.some((block) => block.assignmentId === 'later')).toBe(true)
+})
+
+it('quotes CSV text and keeps spreadsheet formulas as literal text', () => {
+  expect(csvCell('Chapter "2"')).toBe('"Chapter ""2"""')
+  expect(csvCell(' =1+1')).toBe("\"' =1+1\"")
+  expect(csvCell('Normal title')).toBe('"Normal title"')
 })
 
 describe('AI tutor demo hints', () => {

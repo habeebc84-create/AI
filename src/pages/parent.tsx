@@ -5,7 +5,7 @@ import { Users, BookOpen, BarChart3, FileText, Bell, Download, GraduationCap } f
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, LinkButton, Card, Input, Label, Select, Badge, statusBadge, EmptyState, toast } from '../components/ui'
-import { completionRate, fmtDateTime } from '../lib/utils'
+import { completionRate, fmtDateTime, localDateKey, csvCell } from '../lib/utils'
 
 function useChildren() {
   const user = useCurrentUser()!
@@ -29,7 +29,7 @@ export function ParentDashboard() {
           <div className="grid gap-4 sm:grid-cols-3">
             {children.map((c) => {
               const mine = assignments.filter((a) => a.status === 'published' && a.classId === c.classId)
-              const done = submissions.filter((s) => s.studentId === c.id && s.submittedAt).length
+              const done = submissions.filter((s) => s.studentId === c.id && s.submittedAt && !s.returnedForRevision && mine.some((a) => a.id === s.assignmentId)).length
               return (
                 <Card key={c.id} className="p-5">
                   <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-royal-500 text-white font-bold">{c.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span><div><p className="font-display font-bold">{c.name}</p><p className="text-sm text-slate-500">{c.grade} · {c.school}</p></div></div>
@@ -110,11 +110,14 @@ export function ParentProgress() {
       <PageHeader title="Progress" sub="Completion and grades for your linked children." />
       {children.length === 0 ? <EmptyState title="No children linked" body="Link a child first to see their progress." /> : children.map((c) => {
         const mine = assignments.filter((a) => a.status === 'published' && a.classId === c.classId)
-        const subs = submissions.filter((s) => s.studentId === c.id)
-        const done = subs.filter((s) => s.submittedAt)
-        const graded = subs.filter((s) => s.grade !== null)
-        const avg = graded.length > 0 ? Math.round(graded.reduce((t, s) => t + (s.grade ?? 0), 0) / graded.length) : null
-        const data = mine.map((a) => ({ name: a.title.length > 14 ? a.title.slice(0, 14) + '…' : a.title, score: subs.find((s) => s.assignmentId === a.id)?.grade ?? 0, max: a.maxMarks }))
+        const subs = submissions.filter((s) => s.studentId === c.id && mine.some((a) => a.id === s.assignmentId))
+        const done = subs.filter((s) => s.submittedAt && !s.returnedForRevision)
+        const data = mine.flatMap((a) => {
+          const grade = done.find((s) => s.assignmentId === a.id)?.grade
+          if (grade == null) return []
+          return [{ name: a.title.length > 14 ? a.title.slice(0, 14) + '…' : a.title, score: 100 * grade / a.maxMarks }]
+        })
+        const avg = data.length ? Math.round(data.reduce((total, row) => total + row.score, 0) / data.length) : null
         const focusMin = Math.round(focusSessions.filter((s) => s.studentId === c.id).reduce((t, s) => t + s.activeMs, 0) / 60000)
         return (
           <Card key={c.id} className="mb-4 p-6">
@@ -122,13 +125,13 @@ export function ParentProgress() {
             <div className="mt-3 grid gap-4 sm:grid-cols-4">
               <div><p className="text-sm text-slate-500">Completion</p><p className="font-display text-2xl font-extrabold">{completionRate(done.length, mine.length)}%</p></div>
               <div><p className="text-sm text-slate-500">Submitted</p><p className="font-display text-2xl font-extrabold">{done.length}/{mine.length}</p></div>
-              <div><p className="text-sm text-slate-500">Average grade</p><p className="font-display text-2xl font-extrabold">{avg !== null ? `${avg}` : '—'}</p><p className="text-xs text-slate-500">{graded.length} graded assignments</p></div>
+              <div><p className="text-sm text-slate-500">Average grade</p><p className="font-display text-2xl font-extrabold">{avg !== null ? `${avg}%` : '—'}</p><p className="text-xs text-slate-500">{data.length} graded assignments</p></div>
               <div><p className="text-sm text-slate-500">Focus time (total)</p><p className="font-display text-2xl font-extrabold">{focusMin} min</p><p className="text-xs text-slate-500">Session totals only — no detail shared</p></div>
             </div>
-            <div className="mt-5 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="score" fill="#6366F1" radius={[6, 6, 0, 0]} name="Score" /></BarChart></ResponsiveContainer></div>
+            <div className="mt-5 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="score" fill="#6366F1" radius={[6, 6, 0, 0]} name="Score (%)" /></BarChart></ResponsiveContainer></div>
             <div className="mt-3 space-y-2">{mine.map((a) => { const s = subs.find((x) => x.assignmentId === a.id); return (
               <div key={a.id} className="flex flex-wrap justify-between gap-2 rounded-xl bg-slate-50 px-4 py-2.5 text-sm dark:bg-navy-800">
-                <span>{a.title}</span><span>{s?.grade !== null && s?.grade !== undefined ? `Grade: ${s.grade}/${a.maxMarks}` : s?.submittedAt ? 'Submitted — awaiting grade' : 'Not submitted yet'}</span>
+                <span>{a.title}</span><span>{s?.grade !== null && s?.grade !== undefined ? `Grade: ${s.grade}/${a.maxMarks}` : s?.returnedForRevision ? 'Revision requested' : s?.submittedAt ? 'Submitted — awaiting grade' : 'Not submitted yet'}</span>
               </div>) })}</div>
           </Card>
         )
@@ -145,10 +148,10 @@ export function ParentReports() {
     children.forEach((c) => {
       assignments.filter((a) => a.status === 'published' && a.classId === c.classId).forEach((a) => {
         const s = submissions.find((x) => x.assignmentId === a.id && x.studentId === c.id)
-        rows.push([c.name, a.title, a.subject, a.dueAt.slice(0, 10), s?.status ?? 'not-started', s?.grade !== null && s?.grade !== undefined ? String(s.grade) : ''])
+        rows.push([c.name, a.title, a.subject, localDateKey(new Date(a.dueAt)), s?.status ?? 'not-started', s?.grade !== null && s?.grade !== undefined ? String(s.grade) : ''])
       })
     })
-    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = 'focused-ai-progress-report.csv'; el.click(); URL.revokeObjectURL(url)
     toast('Progress report downloaded (CSV).')

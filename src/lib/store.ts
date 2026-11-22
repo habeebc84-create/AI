@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type {
@@ -42,6 +43,8 @@ function hiddenDuration(af: ActiveFocus, end: number) {
 interface FocusPrefs { pomodoroMin: number; shortBreakMin: number; longBreakMin: number }
 
 type ActionResult = { ok: boolean; error?: string }
+
+type NewNotification = Omit<AppNotification, 'id' | 'read' | 'createdAt'>
 
 interface AppState extends SeedData {
   institutionName: string
@@ -89,7 +92,8 @@ interface AppState extends SeedData {
   // notifications / announcements
   markRead: (id: string) => void
   markAllRead: (userId: string) => void
-  notify: (n: Omit<AppNotification, 'id' | 'read' | 'createdAt'>) => void
+  notify: (n: NewNotification) => void
+  notifyMany: (notices: NewNotification[]) => void
   createAnnouncement: (classId: string, teacherId: string, title: string, body: string) => void
   // admin
   updateAiConfig: (patch: Partial<AiProviderConfig>) => void
@@ -100,6 +104,24 @@ interface AppState extends SeedData {
 const seed = buildSeed()
 const initialAiConfig: AiProviderConfig = {
   provider: 'none', model: '', endpoint: '', timeoutMs: 30000, maxTokens: 1024, temperature: 0.7, dailyLimit: 100, configured: false,
+}
+
+let storageWriteFailed = false
+const storageListeners = new Set<() => void>()
+
+function setStorageWriteFailed(failed: boolean) {
+  if (storageWriteFailed === failed) return
+  storageWriteFailed = failed
+  storageListeners.forEach((listener) => listener())
+}
+
+function subscribeStorage(listener: () => void) {
+  storageListeners.add(listener)
+  return () => { storageListeners.delete(listener) }
+}
+
+export function useStorageWriteFailure() {
+  return useSyncExternalStore(subscribeStorage, () => storageWriteFailed)
 }
 
 // Local storage that never crashes the app: a corrupt or truncated saved
@@ -120,8 +142,9 @@ const safeLocalStorage = {
   setItem: (name: string, value: string) => {
     try {
       localStorage.setItem(name, value)
+      setStorageWriteFailed(false)
     } catch {
-      // Quota full: the in-memory state keeps working for this session.
+      setStorageWriteFailed(true)
     }
   },
   removeItem: (name: string) => {
@@ -143,17 +166,27 @@ const fileBudgetError = 'Not enough local storage on this computer for these fil
 
 function notifyAssignmentPublished(state: AppState, assignment: Assignment) {
   const classroom = state.classes.find((item) => item.id === assignment.classId)
-  classroom?.studentIds.forEach((userId) => state.notify({
+  state.notifyMany((classroom?.studentIds ?? []).map((userId) => ({
     userId,
     type: 'assignment',
     title: `New assignment: ${assignment.title}`,
     body: `${assignment.subject} — due ${new Date(assignment.dueAt).toLocaleDateString()}.`,
     link: `/student/assignments/${assignment.id}`,
-  }))
+  })))
 }
 
 function currentActor(state: AppState, role: Role) {
   return state.users.find((user) => user.id === state.currentUserId && user.role === role)
+}
+
+function persistedFields(s: AppState) {
+  return {
+    institutionName: s.institutionName, users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
+    focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
+    conversations: s.conversations, studyPlans: s.studyPlans, guardianLinks: s.guardianLinks,
+    currentUserId: s.currentUserId, focusLosses: s.focusLosses, aiConfig: s.aiConfig, auditLogs: s.auditLogs,
+    focusEvents: s.focusEvents, activeFocus: s.activeFocus, focusPrefs: s.focusPrefs,
+  }
 }
 
 export const useStore = create<AppState>()(
@@ -454,12 +487,27 @@ export const useStore = create<AppState>()(
 
       markRead: (id) => set((s) => ({ notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) })),
       markAllRead: (userId) => set((s) => ({ notifications: s.notifications.map((n) => (n.userId === userId ? { ...n, read: true } : n)) })),
-      notify: (n) => set((s) => ({ notifications: [{ ...n, id: uid('n'), read: false, createdAt: new Date().toISOString() }, ...s.notifications].slice(0, 200) })),
+      notify: (notice) => get().notifyMany([notice]),
+      notifyMany: (notices) => {
+        if (!notices.length) return
+        const createdAt = new Date().toISOString()
+        const incoming = notices.map((notice) => ({ ...notice, id: uid('n'), read: false, createdAt }))
+        set((state) => {
+          const counts = new Map<string, number>()
+          const notifications = [...incoming, ...state.notifications].filter((notice) => {
+            const count = counts.get(notice.userId) ?? 0
+            if (count >= 40) return false
+            counts.set(notice.userId, count + 1)
+            return true
+          })
+          return { notifications }
+        })
+      },
       createAnnouncement: (classId, teacherId, title, body) => {
         if (currentActor(get(), 'teacher')?.id !== teacherId || !get().classes.some((item) => item.id === classId && item.teacherId === teacherId) || !title.trim() || !body.trim()) return
         set((s) => ({ announcements: [{ id: uid('an'), classId, teacherId, title, body, createdAt: new Date().toISOString() }, ...s.announcements] }))
         const cls = get().classes.find((c) => c.id === classId)
-        cls?.studentIds.forEach((sid) => get().notify({ userId: sid, type: 'announcement', title, body, link: '/student/dashboard' }))
+        get().notifyMany((cls?.studentIds ?? []).map((userId) => ({ userId, type: 'announcement', title, body, link: '/student/dashboard' })))
       },
 
       updateAiConfig: (patch) => {
@@ -502,23 +550,30 @@ export const useStore = create<AppState>()(
       version: 1,
       storage: createJSONStorage(() => safeLocalStorage),
       merge: (persisted, initial) => {
-        const state = { ...initial, ...(persisted as Partial<AppState>) }
+        const saved = persisted as Partial<AppState> | undefined
+        const state = { ...initial }
+        if (saved && typeof saved === 'object') {
+          const fields = persistedFields(initial)
+          for (const key of Object.keys(fields) as Array<keyof typeof fields>) {
+            const value = saved[key]
+            const fallback = fields[key]
+            const compatible = Array.isArray(fallback)
+              ? Array.isArray(value) && value.every((entry) => entry && typeof entry === 'object')
+              : fallback === null ? value === null || (key === 'currentUserId' ? typeof value === 'string' : !!value && typeof value === 'object')
+              : typeof value === typeof fallback && value !== null
+            if (compatible) Object.assign(state, { [key]: value })
+          }
+        }
         if (state.currentUserId && (state.focusLosses[state.currentUserId] ?? 0) >= FOCUS_LOSS_LIMIT) state.currentUserId = null
         const af = state.activeFocus
         if (af) {
           const owner = state.users.find((u) => u.id === state.currentUserId && u.role === 'student')
-          state.activeFocus = owner && (!af.studentId || af.studentId === owner.id) && !isStaleFocusSession(af.startedAt, Date.now(), af.plannedSeconds)
+          state.activeFocus = owner && Number.isFinite(Date.parse(af.startedAt)) && Number.isFinite(af.plannedSeconds) && (!af.studentId || af.studentId === owner.id) && !isStaleFocusSession(af.startedAt, Date.now(), af.plannedSeconds)
             ? { ...af, studentId: owner.id } : null
         }
         return state
       },
-      partialize: (s) => ({
-        institutionName: s.institutionName, users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
-        focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
-        conversations: s.conversations, studyPlans: s.studyPlans, guardianLinks: s.guardianLinks,
-        currentUserId: s.currentUserId, focusLosses: s.focusLosses, aiConfig: s.aiConfig, auditLogs: s.auditLogs,
-        focusEvents: s.focusEvents, activeFocus: s.activeFocus, focusPrefs: s.focusPrefs,
-      }) as AppState,
+      partialize: persistedFields,
     },
   ),
 )

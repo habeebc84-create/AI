@@ -21,5 +21,5 @@ export const SUPABASE_SETUP_STEPS = [
   'In the Supabase SQL editor, run supabase/migrations/0001_init.sql, then supabase/seed.sql (after creating the matching Auth users).',
   'Deploy the Edge Functions in supabase/functions/ with: supabase functions deploy ai-tutor ai-admin-config assignment-actions guardian-invitations notification-worker',
   'Set the AI provider secret in the Edge Function (e.g. supabase secrets set OPENAI_API_KEY=...). Keys live server-side only.',
-  'Restart the app — it detects the env vars and switches local storage to Supabase.',
+  'Integrate Supabase Auth and data access into the frontend before deploying shared mode.',
 ]
