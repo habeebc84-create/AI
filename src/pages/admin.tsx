@@ -1,8 +1,9 @@
+import { runAction } from '../lib/laptop'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Users, BookOpen, BarChart3, Bot, Shield, Settings, FileText, CheckCircle2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { useStore, useCurrentUser } from '../lib/store'
+import { useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Select, Badge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
 import type { AiProviderConfig, Role } from '../lib/types'
@@ -28,8 +29,8 @@ export function AdminDashboard() {
         <Card className="p-5">
           <h2 className="font-display font-bold">System status</h2>
           <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Local storage running — all data stays on this computer</li>
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> File storage: up to 2 MB per file, 3 MB total, on this computer</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {DEMO_MODE ? 'Browser-local storage' : 'Shared workspace stored on the host laptop'}</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {DEMO_MODE ? 'File storage: up to 2 MB per file, 3 MB total' : 'Up to three attachments per submission, 2 MB per file'}</li>
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {submissions.filter((s) => s.submittedAt).length} submissions stored · {focusSessions.length} focus sessions stored</li>
           </ul>
           <Link to="/admin/ai-settings" className="mt-4 inline-block text-sm font-semibold text-royal-500 hover:underline">Configure AI provider →</Link>
@@ -46,16 +47,16 @@ export function AdminDashboard() {
 const roles: Role[] = ['student', 'teacher', 'parent', 'admin']
 
 export function AdminUsers() {
-  const { users, classes, addAccount } = useStore()
+  const { users, classes } = useStore()
   const [filter, setFilter] = useState('all')
   const [role, setRole] = useState<Role>('student')
   const [showAdd, setShowAdd] = useState(false)
   const [error, setError] = useState('')
   const list = users.filter((u) => filter === 'all' || u.role === filter)
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const result = addAccount(String(form.get('name')), String(form.get('email')), String(form.get('password')), role, String(form.get('classId') ?? ''))
+    const result = await runAction('addAccount', String(form.get('name')), String(form.get('email')), String(form.get('password')), role, String(form.get('classId') ?? ''))
     if (!result.ok) { setError(result.error ?? 'Could not add the account.'); return }
     setError('')
     setFilter(role)
@@ -64,12 +65,12 @@ export function AdminUsers() {
   }
   return (
     <div>
-      <PageHeader title="User Management" sub="Add and find accounts on this browser." action={<Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd}>{showAdd ? 'Cancel' : 'Add account'}</Button>} />
+      <PageHeader title="User Management" sub={DEMO_MODE ? 'Add and find accounts on this browser.' : 'Add accounts for the shared laptop workspace.'} action={<Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd}>{showAdd ? 'Cancel' : 'Add account'}</Button>} />
       {showAdd && <Card className="mb-5 max-w-2xl p-5">
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="account-name">Full name</Label><Input id="account-name" name="name" required /></div>
           <div><Label htmlFor="account-email">Email</Label><Input id="account-email" name="email" type="email" required /></div>
-          <div><Label htmlFor="account-password">Demo password</Label><Input id="account-password" name="password" type="password" autoComplete="new-password" minLength={6} required /></div>
+          <div><Label htmlFor="account-password">{DEMO_MODE ? 'Demo password' : 'Account password'}</Label><Input id="account-password" name="password" type="password" autoComplete="new-password" minLength={DEMO_MODE ? 6 : 8} maxLength={128} required /></div>
           <div><Label htmlFor="account-role">Role</Label><Select id="account-role" value={role} onChange={(event) => setRole(event.target.value as Role)}>{roles.map((value) => <option key={value}>{value}</option>)}</Select></div>
           {role === 'student' && <div><Label htmlFor="account-class">Class</Label><Select id="account-class" name="classId"><option value="">Assign later</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>}
           {error && <p className="text-sm text-rose-600 sm:col-span-2" role="alert">{error}</p>}
@@ -89,15 +90,15 @@ export function AdminUsers() {
 }
 
 export function AdminClasses() {
-  const { classes, users, addClass, enrollStudent } = useStore()
+  const { classes, users } = useStore()
   const teachers = users.filter((user) => user.role === 'teacher')
   const unassigned = users.filter((user) => user.role === 'student' && !user.classId)
   const [showAdd, setShowAdd] = useState(false)
   const [error, setError] = useState('')
-  const create = (event: FormEvent<HTMLFormElement>) => {
+  const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const result = addClass(String(form.get('name')), String(form.get('grade')), String(form.get('subject')), String(form.get('teacher')))
+    const result = await runAction('addClass', String(form.get('name')), String(form.get('grade')), String(form.get('subject')), String(form.get('teacher')))
     if (!result.ok) { setError(result.error ?? 'Could not add the class.'); return }
     setShowAdd(false)
     setError('')
@@ -121,12 +122,13 @@ export function AdminClasses() {
           <h2 className="font-display text-lg font-bold">{c.name}</h2>
           <p className="text-sm text-slate-500">{c.grade} · {c.subject} · {users.find((u) => u.id === c.teacherId)?.name ?? 'Unassigned teacher'}</p>
           <p className="mt-2 text-sm">{c.studentIds.length} students enrolled</p>
-          {!!unassigned.length && <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => {
+          {!!unassigned.length && <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={async (event) => {
             event.preventDefault()
-            const student = new FormData(event.currentTarget).get('student')
-            const result = enrollStudent(c.id, String(student))
+            const form = event.currentTarget
+            const student = new FormData(form).get('student')
+            const result = await runAction('enrollStudent', c.id, String(student))
             toast(result.ok ? 'Student enrolled.' : result.error ?? 'Could not enrol student.', result.ok ? 'success' : 'error')
-            if (result.ok) event.currentTarget.reset()
+            if (result.ok) form.reset()
           }}>
             <div><Label htmlFor={`enrol-${c.id}`}>Unassigned student</Label><Select id={`enrol-${c.id}`} name="student" required defaultValue=""><option value="">Select student</option>{unassigned.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</Select></div>
             <Button type="submit" variant="outline">Enrol</Button>
@@ -242,7 +244,7 @@ export function AdminSecurity() {
         <h3 className="mt-6 font-display font-bold">Protections in place</h3>
         <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-slate-600 dark:text-slate-300">
           <li>Each workspace checks the signed-in demo role. Administrators add accounts.</li>
-          <li>This demo stores accounts and data in the browser profile.</li>
+          <li>{DEMO_MODE ? 'Demo data stays in the browser profile.' : 'The host laptop validates sessions and workspace access.'}</li>
           <li>File uploads validated by type and size; downloads are ownership-checked.</li>
           <li>AI keys held server-side only; the browser never receives a secret.</li>
           <li>No webcam, microphone or screen-recording capability exists in this application.</li>
@@ -253,22 +255,22 @@ export function AdminSecurity() {
 }
 
 export function AdminSystemSettings() {
-  const { institutionName, saveInstitutionName } = useStore()
+  const { institutionName } = useStore()
   const [name, setName] = useState(institutionName)
-  const save = (e: FormEvent) => {
+  const save = async (e: FormEvent) => {
     e.preventDefault()
-    const result = saveInstitutionName(name)
+    const result = await runAction('saveInstitutionName', name)
     toast(result.ok ? 'Institution name saved.' : result.error ?? 'Could not save settings.', result.ok ? 'success' : 'error')
   }
   return (
     <div>
-      <PageHeader title="System Settings" sub="Manage this browser's demo institution." />
+      <PageHeader title="System Settings" sub={DEMO_MODE ? 'Manage this browser’s demo institution.' : 'Manage the shared institution.'} />
       <Card className="max-w-lg p-6">
         <form onSubmit={save} className="space-y-4">
           <div><Label htmlFor="institution-name">Institution name</Label><Input id="institution-name" value={name} onChange={(e) => setName(e.target.value)} required /></div>
           <Button type="submit">Save settings</Button>
         </form>
-        <p className="mt-4 text-sm text-slate-500">Stored in this browser. Attachments store up to 2 MB per file and 3 MB total.</p>
+        <p className="mt-4 text-sm text-slate-500">{DEMO_MODE ? 'Stored in this browser. Attachments store up to 2 MB per file and 3 MB total.' : 'This setting is saved in the shared laptop database.'}</p>
       </Card>
     </div>
   )

@@ -1,3 +1,4 @@
+import { runAction } from '../lib/laptop'
 import { useState, type FormEvent } from 'react'
 import { Notifications } from '../components/notifications'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -126,7 +127,7 @@ export function TeacherAssignments() {
 
 export function TeacherAssignmentCreate() {
   const user = useCurrentUser()!
-  const { classes, createAssignment } = useStore()
+  const { classes } = useStore()
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState(() => classes.find((c) => c.teacherId === user.id)?.subject ?? 'Mathematics')
@@ -142,7 +143,7 @@ export function TeacherAssignmentCreate() {
   const [error, setError] = useState('')
   const myClasses = classes.filter((c) => c.teacherId === user.id)
   const subjects = [...new Set(['Mathematics', 'Science', 'English', 'History', 'Computer Science', ...myClasses.map((item) => item.subject)])]
-  const save = (e: FormEvent<HTMLFormElement>) => {
+  const save = async (e: FormEvent<HTMLFormElement>) => {
     const publish = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'publish'
     e.preventDefault()
     if (!title.trim() || !classId) { setError('Title and class are required.'); return }
@@ -151,7 +152,7 @@ export function TeacherAssignmentCreate() {
       setError('Enter a valid deadline and a maximum mark between 1 and 100.')
       return
     }
-    const id = createAssignment({ title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
+    const id = await runAction('createAssignment', { title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
     if (!id) { setError('Choose a class assigned to your account.'); return }
     toast(publish ? 'Assignment published — students notified.' : 'Draft saved.')
     navigate(`/teacher/assignments/${id}`)
@@ -202,7 +203,7 @@ export function TeacherAssignmentDetail() {
   const enrolled = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
   return (
     <div>
-      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={() => { publishAssignment(a.id); toast('Assignment published — students notified.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setEditing(true) }}>Edit instructions and notes</Button></div>} />
+      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={async () => { if (!await runAction('publishAssignment', a.id)) return; toast('Assignment published — students notified.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setEditing(true) }}>Edit instructions and notes</Button></div>} />
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
           <div className="flex gap-2">{statusBadge(a.status)}<Badge color="indigo">{submitted.length} submitted</Badge><Badge color="emerald">{graded.length} graded</Badge></div>
@@ -232,7 +233,7 @@ export function TeacherAssignmentDetail() {
         <Label htmlFor="edit-instructions">Instructions</Label>
         <Textarea id="edit-instructions" rows={5} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
         <div className="mt-3"><Label htmlFor="edit-reference-notes">Reference notes for students</Label><Textarea id="edit-reference-notes" rows={5} value={referenceNotes} onChange={(e) => setReferenceNotes(e.target.value)} /></div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button><Button onClick={() => { updateAssignment(a.id, { instructions, referenceNotes: referenceNotes.trim() }); setEditing(false); toast('Assignment text updated.') }}>Save changes</Button></div>
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button><Button onClick={async () => { if (!await runAction('updateAssignment', a.id, { instructions, referenceNotes: referenceNotes.trim() })) return; setEditing(false); toast('Assignment text updated.') }}>Save changes</Button></div>
       </Modal>
     </div>
   )
@@ -265,7 +266,7 @@ export function TeacherSubmissions() {
 export function TeacherSubmissionDetail() {
   const { id } = useParams()
   const user = useCurrentUser()!
-  const { assignments, submissions, users, gradeSubmission, returnForRevision } = useStore()
+  const { assignments, submissions, users } = useStore()
   const navigate = useNavigate()
   const [grade, setGrade] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -274,6 +275,13 @@ export function TeacherSubmissionDetail() {
   if (!s?.submittedAt || s.returnedForRevision || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<LinkButton to="/teacher/submissions">Back</LinkButton>} />
   const st = users.find((u) => u.id === s.studentId)
   const downloadFile = (f: StoredFile) => {
+    if (f.downloadUrl) {
+      const link = document.createElement('a')
+      link.href = f.downloadUrl
+      link.download = f.name
+      link.click()
+      return
+    }
     // Files uploaded since local storage was introduced carry their real
     // contents (stored on this computer); older or oversized files are
     // metadata-only, and the download says so plainly.
@@ -293,7 +301,7 @@ export function TeacherSubmissionDetail() {
           {s.files.length === 0 ? <p className="mt-1 text-sm text-slate-500">No files attached.</p> : s.files.map((f) => (
             <button key={f.name} onClick={() => downloadFile(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-royal-500 dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
           ))}
-          <p className="mt-4 text-xs text-slate-500">File downloads are validated: only the owning teacher and the submitting student can access a submission. Files are stored only on this computer — downloaded files are the real uploaded bytes when stored, otherwise a note saying contents were not stored.</p>
+          <p className="mt-4 text-xs text-slate-500">File downloads are validated: only the owning teacher and the submitting student can access a submission. An attachment with stored contents downloads as the original file. Sample metadata downloads as a text note.</p>
         </Card>
         <Card className="p-6">
           <h2 className="font-display font-bold">Grade & feedback</h2>
@@ -302,8 +310,8 @@ export function TeacherSubmissionDetail() {
           <div className="mt-4"><Label htmlFor="grade-score">Grade (0–{a.maxMarks})</Label><Input id="grade-score" type="number" min={0} max={a.maxMarks} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={`e.g. ${Math.round(a.maxMarks * 0.85)}`} /></div>
           <div className="mt-4"><Label htmlFor="grade-feedback">Written feedback</Label><Textarea id="grade-feedback" rows={4} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What went well? What should they improve?" /></div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => { const g = Number(grade); if (!grade.trim() || !Number.isFinite(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } gradeSubmission(s.id, g, feedback); toast('Grade published — student and guardian notified.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
-            <Button variant="outline" onClick={() => { if (!feedback.trim()) { toast('Add feedback explaining what to revise.', 'error'); return } returnForRevision(s.id, feedback); toast('Returned for revision.'); navigate('/teacher/submissions') }}><RotateCcw className="h-4 w-4" /> Return for revision</Button>
+            <Button onClick={async () => { const g = Number(grade); if (!grade.trim() || !Number.isFinite(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } if (!await runAction('gradeSubmission', s.id, g, feedback)) return; toast('Grade published — student and guardian notified.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
+            <Button variant="outline" onClick={async () => { if (!feedback.trim()) { toast('Add feedback explaining what to revise.', 'error'); return } if (!await runAction('returnForRevision', s.id, feedback)) return; toast('Returned for revision.'); navigate('/teacher/submissions') }}><RotateCcw className="h-4 w-4" /> Return for revision</Button>
           </div>
         </Card>
       </div>
@@ -374,7 +382,7 @@ export function TeacherProfile() {
   const save = (e: FormEvent) => { e.preventDefault(); updateProfile(user.id, { name, department: dept }); toast('Profile updated.') }
   return (
     <div>
-      <PageHeader title="My Profile" sub="Teacher profile, stored only on this computer." />
+      <PageHeader title="My Profile" sub="Update your teacher profile." />
       <Card className="max-w-lg p-6">
         <p className="font-display text-lg font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email} · Teacher · {user.department}</p>
         <form onSubmit={save} className="mt-5 space-y-4">

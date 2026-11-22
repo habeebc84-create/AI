@@ -14,7 +14,7 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 it('shows the running session and locks other tabs until it is finished', async () => {
   state().startFocus('a_hist', 'History homework', 'custom', 600)
   render(<App />)
-  expect(await screen.findByText('Active session')).toBeTruthy()
+  expect(await screen.findByText('Active session', {}, { timeout: 5000 })).toBeTruthy()
   expect(screen.getByText('French Revolution notes')).toBeTruthy()
   fireEvent.click(screen.getByText('Return to session'))
   expect((await screen.findByText('Open homework')).getAttribute('href')).toBe('/student/assignments/a_hist')

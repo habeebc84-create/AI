@@ -69,6 +69,7 @@ export interface StoredFile {
   type: string
   /** Base64 data URL of the file contents, stored on this computer. Absent when contents were not stored (over the cap, or a seeded sample file). */
   dataUrl?: string
+  downloadUrl?: string
 }
 
 /** Approximate stored bytes of data URLs (base64 is ~4/3 of the raw size). */

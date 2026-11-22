@@ -22,6 +22,8 @@ jobs:
           bun-version: 1.4.5
       - run: bun install --frozen-lockfile
       - run: npm test
+      - run: npm run build:laptop
+      - run: bun run test:laptop
       - run: npm run build -- --mode github-pages --base "/${{ github.event.repository.name }}/"
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main' && github.event.repository.has_pages

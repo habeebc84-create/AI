@@ -1,3 +1,4 @@
+import { runAction } from '../lib/laptop'
 import { useState, type FormEvent } from 'react'
 import { Notifications } from '../components/notifications'
 import { Link } from 'react-router-dom'
@@ -57,7 +58,7 @@ export function ParentDashboard() {
 export function ParentChildren() {
   const user = useCurrentUser()!
   const children = useChildren()
-  const { guardianLinks, users, focusLosses, unlockStudent, acceptGuardian } = useStore()
+  const { guardianLinks, users, focusLosses, acceptGuardian } = useStore()
   const pending = guardianLinks.filter((g) => g.parentId === user.id && g.status === 'pending')
   return (
     <div>
@@ -66,7 +67,7 @@ export function ParentChildren() {
         <Card key={c.id} className="mb-3 flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="flex items-center gap-3"><GraduationCap className="h-8 w-8 text-royal-500" /><div><p className="font-display font-bold">{c.name}</p><p className="text-sm text-slate-500">{c.grade} · {c.school} · {c.email}</p></div></div>
            {(focusLosses[c.id] ?? 0) >= FOCUS_LOSS_LIMIT
-            ? <div className="flex items-center gap-2"><Badge color="rose">Login locked</Badge><Button onClick={() => { if (unlockStudent(c.id)) toast(`${c.name} can sign in again.`) }}>Unlock student login</Button></div>
+            ? <div className="flex items-center gap-2"><Badge color="rose">Login locked</Badge><Button onClick={async () => { if (await runAction('unlockStudent', c.id)) toast(`${c.name} can sign in again.`) }}>Unlock student login</Button></div>
             : <Badge color="emerald">Linked</Badge>}
         </Card>
       ))}
@@ -176,13 +177,12 @@ export function ParentSettings() {
   const [email, setEmail] = useState('')
   const [msg, setMsg] = useState('')
   const [childId, setChildId] = useState('')
-  const inviteGuardian = useStore((s) => s.inviteGuardian)
   const children = useChildren()
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const child = children.find((item) => item.id === childId) ?? (children.length === 1 ? children[0] : undefined)
     if (!child) { setMsg('Select a linked child first.'); return }
-    const r = inviteGuardian(email, child.id)
+    const r = await runAction('inviteGuardian', email, child.id)
     setMsg(r.ok ? 'Invitation request sent. The guardian can accept it in My Children.' : (r.error ?? 'Could not send the invitation.'))
   }
   return (
