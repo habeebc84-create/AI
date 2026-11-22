@@ -5,7 +5,8 @@ import {
   Clock, Download, Send, Plus, Trash2, Sparkles, AlertTriangle, FileText, Search, Bell,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
-import { useStore, useCurrentUser } from '../lib/store'
+import { PdfPreview } from '../components/pdf-preview'
+import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz, type TutorLevel } from '../lib/ai'
@@ -198,6 +199,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   useEffect(() => { if (existing) { setText(existing.text); setFiles(existing.files) } }, [existing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!a) return <EmptyState title="Assignment not found" body="It may have been removed, or the link is wrong." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
   if (a.status !== 'published') return <EmptyState title="Not published yet" body="Your teacher has not published this assignment." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
+  const book = REFERENCE_BOOKS.find((item) => item.subject === a.subject)
   const late = new Date() > new Date(a.dueAt)
   const locked = Boolean(existing?.submittedAt && !existing.returnedForRevision)
   const downloadAttachment = (name: string) => {
@@ -270,6 +272,8 @@ function AssignmentDetailForm({ id }: { id?: string }) {
             <p className="mt-1 text-sm text-slate-500">Break it into three scheduled tasks in your study planner, working back from the deadline.</p>
             <Button className="mt-3" variant="outline" onClick={breakIntoTasks}><CalendarDays className="h-4 w-4" /> Break into study tasks</Button>
           </div>
+          {a.referenceNotes && <section className="mt-6"><h3 className="font-display font-bold">Teacher reference notes</h3><p className="mt-2 whitespace-pre-wrap break-words">{a.referenceNotes}</p></section>}
+          {book && <PdfPreview title={book.title} file={book.file} />}
           <h3 className="mt-6 font-display font-bold">Attachments</h3>
           {a.attachments.length === 0 ? <p className="mt-1 text-sm text-slate-500">No attachments.</p> : a.attachments.map((f) => (
             <button key={f.name} onClick={() => downloadAttachment(f.name)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-royal-500 dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
@@ -364,6 +368,7 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
             <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm dark:bg-navy-800">
               <p className="font-semibold">Instructions</p>
               <p className="mt-1 whitespace-pre-line text-slate-600 dark:text-slate-300">{selected.instructions}</p>
+              {selected.referenceNotes && <div className="mt-3"><p className="font-semibold">Teacher reference notes</p><p className="whitespace-pre-wrap break-words">{selected.referenceNotes}</p></div>}
               {selected.rubric && <p className="mt-2 text-slate-500"><strong>Rubric:</strong> {selected.rubric}</p>}
             </div>
           )}
@@ -384,9 +389,7 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
                       </div>
                     ))}
                   </div>
-                  <a href={book.file} download className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-navy-800">
-                    <Download className="h-4 w-4" /> Download {book.title} PDF
-                  </a>
+                  <PdfPreview key={book.file} title={book.title} file={book.file} />
                 </>
               )}
         </Card>
@@ -428,8 +431,12 @@ function FocusDial({ planned }: { planned: number }) {
 
 export function FocusPage() {
   const user = useCurrentUser()!
-  const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents } = useStore()
+  const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents, focusLosses, guardianLinks, inviteGuardian } = useStore()
   const [params] = useSearchParams()
+  const [parentEmail, setParentEmail] = useState('')
+  const parentLinked = guardianLinks.some((link) => link.studentId === user.id && link.status === 'accepted')
+  const pendingLink = guardianLinks.some((link) => link.studentId === user.id && link.status === 'pending')
+  const losses = focusLosses[user.id] ?? 0
   const queryMinutes = Number(params.get('minutes'))
   const hasQueryMinutes = Number.isFinite(queryMinutes) && queryMinutes >= 5 && queryMinutes <= 180
   const [assignmentId, setAssignmentId] = useState(params.get('assignment') ?? '')
@@ -452,7 +459,21 @@ export function FocusPage() {
   const sessionEvents = af ? focusEvents.filter((e) => e.sessionId === af.sessionId) : []
   return (
     <div>
-      <PageHeader title="Focus Mode" sub="Your timer keeps running when you switch tabs. Only the number of switches and time away are recorded, not what you open." />
+      <PageHeader title="Focus Mode" sub="Leaving this tab during an active timer counts as a focus loss. Five losses lock your login until your linked parent unlocks it." />
+      <p className="mb-4 text-sm font-semibold">Focus losses since last unlock: {losses}/{FOCUS_LOSS_LIMIT}</p>
+      {!parentLinked && !af && <Card className="mb-4 p-5">
+        <h2 className="font-display font-bold">Link a parent to start Focus Mode</h2>
+        <p className="mt-1 text-sm">{pendingLink ? 'Ask your parent to accept the request in My Children.' : 'Send a link request to your parent’s account on this browser.'}</p>
+        <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => {
+          event.preventDefault()
+          const result = inviteGuardian(parentEmail, user.id)
+          toast(result.ok ? 'Guardian link requested.' : result.error ?? 'Could not request a guardian link.', result.ok ? 'success' : 'error')
+          if (result.ok) setParentEmail('')
+        }}>
+          <div><Label htmlFor="focus-parent-email">Parent email</Label><Input id="focus-parent-email" type="email" required value={parentEmail} onChange={(event) => setParentEmail(event.target.value)} /></div>
+          <Button type="submit" variant="outline">Request guardian link</Button>
+        </form>
+      </Card>}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="flex flex-col items-center p-8 text-center">
           <FocusDial planned={planned} />
@@ -479,7 +500,7 @@ export function FocusPage() {
               <div><Label>Study goal</Label><Input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Finish quadratic problem set" /></div>
               <div><Label>Timer mode</Label><Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}><option value="pomodoro">Pomodoro — {focusPrefs.pomodoroMin} min</option><option value="short-break">Short break — {focusPrefs.shortBreakMin} min</option><option value="long-break">Long break — {focusPrefs.longBreakMin} min</option><option value="custom">Custom</option></Select></div>
               {mode === 'custom' && <div><Label>Custom duration (minutes)</Label><Input type="number" min={5} max={180} value={customMin} onChange={(e) => setCustomMin(Number(e.target.value))} /></div>}
-              <Button onClick={start} className="w-full" size="lg"><Play className="h-4 w-4" /> Start focus session</Button>
+              <Button onClick={start} disabled={!parentLinked} className="w-full" size="lg"><Play className="h-4 w-4" /> Start focus session</Button>
               <p className="text-xs text-slate-500">You can return to this session from Home.</p>
             </div>
           )}
@@ -732,7 +753,7 @@ export function StudentAnalytics() {
               <li key={g.subject} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-2.5 text-sm dark:bg-navy-800">
                 <span><strong>{g.subject}</strong> · {g.avg}% average across {g.graded} graded {g.graded === 1 ? 'result' : 'results'}</span>
                 <span className="flex gap-3">
-                  {g.book && <a href={g.book.file} download className="font-semibold text-royal-500 underline">Revision PDF</a>}
+                  {g.book && <PdfPreview title={g.book.title} file={g.book.file} />}
                   <Link to="/student/assessments" className="font-semibold text-royal-500 underline">Practise</Link>
                 </span>
               </li>

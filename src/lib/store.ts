@@ -12,6 +12,7 @@ import { uid, storedFileBytes, LOCAL_FILE_BUDGET_BYTES } from './utils'
 // Local-only storage: all data lives in this computer's browser
 // (localStorage). There is no server or cloud sync by design.
 export const DEMO_MODE = true
+export const FOCUS_LOSS_LIMIT = 5
 
 export interface ActiveFocus {
   studentId: string
@@ -42,6 +43,10 @@ interface FocusPrefs { pomodoroMin: number; shortBreakMin: number; longBreakMin:
 
 interface AppState extends SeedData {
   currentUserId: string | null
+  focusLosses: Record<string, number>
+  focusLockNotice: boolean
+  unlockStudent: (studentId: string) => boolean
+  acceptGuardian: (linkId: string) => void
   aiConfig: AiProviderConfig
   auditLogs: AuditLog[]
   focusEvents: FocusEvent[]
@@ -145,6 +150,8 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       ...seed,
       currentUserId: null,
+      focusLosses: {},
+      focusLockNotice: false,
       aiConfig: initialAiConfig,
       auditLogs: [{ id: uid('al'), actorId: 'system', action: 'demo.seed', detail: 'Sample data loaded — stored only on this computer.', at: new Date().toISOString() }],
       focusEvents: [],
@@ -157,8 +164,11 @@ export const useStore = create<AppState>()(
         const user = get().users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
         if (!user) return { ok: false, error: 'No account with that email on this computer. Try a sample account or register.' }
         if (user.password !== password) return { ok: false, error: 'Incorrect password. Sample accounts use “demo1234”.' }
+        if ((get().focusLosses[user.id] ?? 0) >= FOCUS_LOSS_LIMIT) {
+          return { ok: false, error: 'Your account is locked after five focus losses. Ask your linked parent to unlock it.' }
+        }
         if (get().currentUserId !== user.id && get().activeFocus) get().finishFocus(null, '')
-        set({ currentUserId: user.id })
+        set({ currentUserId: user.id, focusLockNotice: false })
         get().audit(user.id, 'auth.login', `${user.name} signed in.`)
         return { ok: true }
       },
@@ -170,6 +180,7 @@ export const useStore = create<AppState>()(
         set((s) => ({
           users: [...s.users, user],
           currentUserId: user.id,
+          focusLockNotice: false,
           classes: s.classes.map((c) => c.id === user.classId ? { ...c, studentIds: [...c.studentIds, user.id] } : c),
         }))
         get().audit(user.id, 'auth.register', `${name} registered as a student.`)
@@ -181,7 +192,7 @@ export const useStore = create<AppState>()(
       },
       resetDemo: () => {
         const fresh = buildSeed()
-        set({ ...fresh, currentUserId: null, aiConfig: initialAiConfig, auditLogs: [], focusEvents: [], activeFocus: null })
+        set({ ...fresh, currentUserId: null, focusLosses: {}, focusLockNotice: false, aiConfig: initialAiConfig, auditLogs: [], focusEvents: [], activeFocus: null })
       },
       updateProfile: (id, patch) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
 
@@ -264,6 +275,7 @@ export const useStore = create<AppState>()(
       startFocus: (assignmentId, goal, mode, plannedSeconds) => {
         const userId = get().currentUserId
         if (!userId || get().activeFocus || !Number.isFinite(plannedSeconds) || plannedSeconds <= 0 || !get().users.some((u) => u.id === userId && u.role === 'student')) return
+        if (!get().guardianLinks.some((link) => link.studentId === userId && link.status === 'accepted')) return
         const sessionId = uid('fs')
         set({
           activeFocus: { studentId: userId, sessionId, assignmentId, goal, mode, plannedSeconds, startedAt: new Date().toISOString(), accumulatedMs: 0, lastResumeAt: new Date().toISOString(), hiddenMs: 0, hiddenSince: null, visibilityCount: 0, status: 'running' },
@@ -314,7 +326,22 @@ export const useStore = create<AppState>()(
         const nowIso = new Date().toISOString()
         if (hidden) {
           if (af.hiddenSince) return
-          set({ activeFocus: { ...af, visibilityCount: af.visibilityCount + 1, hiddenSince: nowIso }, focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'hidden', at: nowIso }, ...get().focusEvents] })
+          const losses = (get().focusLosses[af.studentId] ?? 0) + 1
+          const focusLosses = { ...get().focusLosses, [af.studentId]: losses }
+          set({
+            activeFocus: { ...af, visibilityCount: af.visibilityCount + 1, hiddenSince: nowIso },
+            focusEvents: [{ id: uid('fe'), sessionId: af.sessionId, type: 'hidden', at: nowIso }, ...get().focusEvents],
+            focusLosses,
+          })
+          if (losses >= FOCUS_LOSS_LIMIT) {
+            get().finishFocus(null, '')
+            set({ currentUserId: null, focusLockNotice: true })
+            const student = get().users.find((user) => user.id === af.studentId)
+            for (const link of get().guardianLinks) {
+              if (link.studentId !== af.studentId || link.status !== 'accepted') continue
+              get().notify({ userId: link.parentId, type: 'session', title: 'Student login locked', body: `${student?.name ?? 'Your child'} lost focus five times. Open My Children to restore access.`, link: '/parent/children' })
+            }
+          }
         } else if (af.hiddenSince) {
           const hiddenMs = Date.now() - new Date(af.hiddenSince).getTime()
           set({
@@ -369,12 +396,28 @@ export const useStore = create<AppState>()(
         const userId = get().currentUserId
         if (userId) get().audit(userId, 'ai.config', `AI provider config updated: ${patch.provider ?? get().aiConfig.provider}. No secret was stored in the browser.`)
       },
+      unlockStudent: (studentId) => {
+        const { currentUserId, users, guardianLinks, focusLosses } = get()
+        if (!currentUserId || !users.some((user) => user.id === currentUserId && user.role === 'parent')) return false
+        if (!guardianLinks.some((link) => link.parentId === currentUserId && link.studentId === studentId && link.status === 'accepted')) return false
+        if ((focusLosses[studentId] ?? 0) < FOCUS_LOSS_LIMIT) return false
+        set({ focusLosses: { ...focusLosses, [studentId]: 0 } })
+        get().audit(currentUserId, 'focus.unlock', 'A linked parent restored student login access.')
+        return true
+      },
+      acceptGuardian: (linkId) => {
+        const { currentUserId, users } = get()
+        if (!users.some((user) => user.id === currentUserId && user.role === 'parent')) return
+        set((s) => ({ guardianLinks: s.guardianLinks.map((link) =>
+          link.id === linkId && link.parentId === currentUserId && link.status === 'pending' ? { ...link, status: 'accepted' } : link,
+        ) }))
+      },
       inviteGuardian: (parentEmail, studentId) => {
         const parent = get().users.find((u) => u.email.toLowerCase() === parentEmail.trim().toLowerCase() && u.role === 'parent')
         if (!parent) return { ok: false, error: 'No parent account with that email. The guardian must register first.' }
         if (get().guardianLinks.some((g) => g.parentId === parent.id && g.studentId === studentId)) return { ok: false, error: 'A guardian link already exists for this parent and student.' }
         set((s) => ({ guardianLinks: [...s.guardianLinks, { id: uid('g'), parentId: parent.id, studentId, status: 'pending', createdAt: new Date().toISOString() }] }))
-        get().notify({ userId: parent.id, type: 'announcement', title: 'Guardian link requested', body: `${get().users.find((u) => u.id === studentId)?.name ?? 'A student'} requested to link you as their guardian.`, link: '/parent/dashboard' })
+        get().notify({ userId: parent.id, type: 'announcement', title: 'Guardian link requested', body: `${get().users.find((u) => u.id === studentId)?.name ?? 'A student'} requested to link you as their guardian.`, link: '/parent/children' })
         return { ok: true }
       },
     }),
@@ -384,6 +427,7 @@ export const useStore = create<AppState>()(
       storage: createJSONStorage(() => safeLocalStorage),
       merge: (persisted, initial) => {
         const state = { ...initial, ...(persisted as Partial<AppState>) }
+        if (state.currentUserId && (state.focusLosses[state.currentUserId] ?? 0) >= FOCUS_LOSS_LIMIT) state.currentUserId = null
         const af = state.activeFocus
         if (af) {
           const owner = state.users.find((u) => u.id === state.currentUserId && u.role === 'student')
@@ -396,7 +440,7 @@ export const useStore = create<AppState>()(
         users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
         focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
         conversations: s.conversations, studyPlans: s.studyPlans, guardianLinks: s.guardianLinks,
-        currentUserId: s.currentUserId, aiConfig: s.aiConfig, auditLogs: s.auditLogs,
+        currentUserId: s.currentUserId, focusLosses: s.focusLosses, aiConfig: s.aiConfig, auditLogs: s.auditLogs,
         focusEvents: s.focusEvents, activeFocus: s.activeFocus, focusPrefs: s.focusPrefs,
       }) as AppState,
     },
@@ -409,7 +453,7 @@ export function isStaleFocusSession(startedAt: string, now = Date.now(), planned
 }
 
 export const useCurrentUser = (): User | null => {
-  return useStore((s) => s.users.find((u) => u.id === s.currentUserId) ?? null)
+  return useStore((s) => s.users.find((u) => u.id === s.currentUserId && (s.focusLosses[u.id] ?? 0) < FOCUS_LOSS_LIMIT) ?? null)
 }
 
 export function demoAccounts() {

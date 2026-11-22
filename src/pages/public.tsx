@@ -323,6 +323,7 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const login = useStore((s) => s.login)
+  const focusLockNotice = useStore((s) => s.focusLockNotice)
   const navigate = useNavigate()
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -340,7 +341,7 @@ export function Login() {
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div><Label htmlFor="login-email">Email</Label><Input id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
           <div><Label htmlFor="login-password">Password</Label><Input id="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" /></div>
-          {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">{error}</p>}
+          {(error || focusLockNotice) && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">{error || "Student login locked after five focus losses. Ask your linked parent to unlock it under My Children."}</p>}
           <Button type="submit" className="w-full" size="lg">Log in</Button>
         </form>
         <p className="mt-4 text-center text-sm"><Link className="text-royal-500 hover:underline" to="/forgot-password">Forgot your password?</Link> · <Link className="text-royal-500 hover:underline" to="/register">Create an account</Link></p>

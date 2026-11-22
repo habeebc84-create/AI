@@ -62,3 +62,43 @@ it('restores the session after rehydration without transferring it to another st
   expect(state().activeFocus).toBeNull()
   expect(state().focusSessions[0]).toMatchObject({ id, studentId: 'u_aarav' })
 })
+
+it('locks login on the fifth distinct loss and lets a linked parent restore it', async () => {
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+  state().startFocus(null, 'Practice', 'pomodoro', 1500)
+  render(<App />)
+  const switchTab = (away: boolean) => act(() => {
+    hidden.mockReturnValue(away)
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  switchTab(true)
+  switchTab(true)
+  switchTab(false)
+  expect(state().focusLosses.u_aarav).toBe(1)
+  act(() => {
+    state().finishFocus(null, '')
+    state().startFocus(null, 'Another session', 'pomodoro', 1500)
+  })
+  for (let count = 0; count < 3; count++) {
+    switchTab(true)
+    switchTab(false)
+  }
+  expect(state().currentUserId).toBe('u_aarav')
+  switchTab(true)
+  expect((await screen.findByRole('alert')).textContent).toMatch(/login locked/i)
+  expect(state().currentUserId).toBeNull()
+  expect(state().activeFocus).toBeNull()
+  await act(async () => { await useStore.persist.rehydrate() })
+  expect(state().login('aarav@demo.focused.ai', 'demo1234').ok).toBe(false)
+  expect(state().unlockStudent('u_aarav')).toBe(false)
+  act(() => { state().login('priya@demo.focused.ai', 'demo1234') })
+  expect(state().unlockStudent('u_aarav')).toBe(false)
+  act(() => {
+    state().login('rohit@demo.focused.ai', 'demo1234')
+    window.history.pushState({}, '', '/parent/children')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  fireEvent.click(await screen.findByRole('button', { name: 'Unlock student login' }))
+  expect(state().focusLosses.u_aarav).toBe(0)
+  act(() => { expect(state().login('aarav@demo.focused.ai', 'demo1234').ok).toBe(true) })
+})

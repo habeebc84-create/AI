@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Users, BookOpen, BarChart3, FileText, Bell, Download, GraduationCap } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { useStore, useCurrentUser } from '../lib/store'
+import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Badge, statusBadge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
 
@@ -56,7 +56,7 @@ export function ParentDashboard() {
 export function ParentChildren() {
   const user = useCurrentUser()!
   const children = useChildren()
-  const { guardianLinks, users } = useStore()
+  const { guardianLinks, users, focusLosses, unlockStudent, acceptGuardian } = useStore()
   const pending = guardianLinks.filter((g) => g.parentId === user.id && g.status === 'pending')
   return (
     <div>
@@ -64,12 +64,14 @@ export function ParentChildren() {
       {children.map((c) => (
         <Card key={c.id} className="mb-3 flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="flex items-center gap-3"><GraduationCap className="h-8 w-8 text-royal-500" /><div><p className="font-display font-bold">{c.name}</p><p className="text-sm text-slate-500">{c.grade} · {c.school} · {c.email}</p></div></div>
-          <Badge color="emerald">Linked</Badge>
+           {(focusLosses[c.id] ?? 0) >= FOCUS_LOSS_LIMIT
+            ? <div className="flex items-center gap-2"><Badge color="rose">Login locked</Badge><Button onClick={() => { if (unlockStudent(c.id)) toast(`${c.name} can sign in again.`) }}>Unlock student login</Button></div>
+            : <Badge color="emerald">Linked</Badge>}
         </Card>
       ))}
       {pending.map((g) => {
         const s = users.find((u) => u.id === g.studentId)
-        return <Card key={g.id} className="mb-3 p-5"><p className="font-semibold">Link request pending: {s?.name}</p><p className="text-sm text-slate-500">Requested {fmtDateTime(g.createdAt)}. Links are accepted automatically by the school workflow; an institution verifies the link first in a managed deployment.</p></Card>
+        return <Card key={g.id} className="mb-3 p-5"><p className="font-semibold">Link request pending: {s?.name}</p><p className="text-sm text-slate-500">Requested {fmtDateTime(g.createdAt)}. Accept the request if this is your child.</p><Button className="mt-3" onClick={() => acceptGuardian(g.id)}>Accept guardian link</Button></Card>
       })}
       {children.length === 0 && pending.length === 0 && <EmptyState title="No linked children" body="Guardian links require a secure invitation from the school. Once the school creates one for your email, it will appear here." />}
     </div>

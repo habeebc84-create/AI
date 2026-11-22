@@ -132,6 +132,7 @@ export function TeacherAssignmentCreate() {
   const [classId, setClassId] = useState(classes.find((c) => c.teacherId === user.id)?.id ?? '')
   const [description, setDescription] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [referenceNotes, setReferenceNotes] = useState('')
   const [dueAt, setDueAt] = useState(() => localDateTimeInput(new Date(Date.now() + 3 * 86400000)))
   const [maxMarks, setMaxMarks] = useState(20)
   const [format, setFormat] = useState('Text response or PDF')
@@ -148,7 +149,7 @@ export function TeacherAssignmentCreate() {
       setError('Enter a valid deadline and a maximum mark between 1 and 100.')
       return
     }
-    const id = createAssignment({ title: title.trim(), description, instructions, subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
+    const id = createAssignment({ title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
     toast(publish ? 'Assignment published — students notified.' : 'Draft saved.')
     navigate(`/teacher/assignments/${id}`)
   }
@@ -164,6 +165,7 @@ export function TeacherAssignmentCreate() {
           </div>
           <div><Label>Description</Label><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short summary for the assignment list" /></div>
           <div><Label>Instructions</Label><Textarea rows={5} required value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="What exactly should students do?" /></div>
+          <div><Label htmlFor="assignment-reference">Reference notes for students</Label><Textarea id="assignment-reference" rows={5} value={referenceNotes} onChange={(e) => setReferenceNotes(e.target.value)} /></div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div><Label>Due date & time</Label><Input type="datetime-local" required value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
             <div><Label>Maximum marks</Label><Input type="number" min={1} max={100} value={maxMarks} onChange={(e) => setMaxMarks(Number(e.target.value))} /></div>
@@ -186,17 +188,19 @@ export function TeacherAssignmentDetail() {
   const a = assignments.find((x) => x.id === id && x.teacherId === user.id)
   const [editing, setEditing] = useState(false)
   const [instructions, setInstructions] = useState('')
+  const [referenceNotes, setReferenceNotes] = useState('')
   if (!a) return <EmptyState title="Assignment not found" body="It may belong to another teacher." action={<Link to="/teacher/assignments"><Button>Back</Button></Link>} />
   const submitted = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
   const graded = submitted.filter((s) => s.grade !== null)
   const enrolled = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
   return (
     <div>
-      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={() => { publishAssignment(a.id); toast('Assignment published — students notified.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setEditing(true) }}>Edit instructions</Button></div>} />
+      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={() => { publishAssignment(a.id); toast('Assignment published — students notified.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setEditing(true) }}>Edit instructions and notes</Button></div>} />
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
           <div className="flex gap-2">{statusBadge(a.status)}<Badge color="indigo">{submitted.length} submitted</Badge><Badge color="emerald">{graded.length} graded</Badge></div>
           <p className="mt-4 whitespace-pre-line">{a.instructions}</p>
+          {a.referenceNotes && <div className="mt-3"><h3 className="font-display font-bold">Teacher reference notes</h3><p className="whitespace-pre-wrap break-words">{a.referenceNotes}</p></div>}
           {a.rubric && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm dark:bg-navy-800"><strong>Rubric:</strong> {a.rubric}</p>}
           <h3 className="mt-6 font-display font-bold">Submissions</h3>
           {submitted.length === 0 ? <p className="mt-2 text-sm text-slate-500">No submissions ready for review.</p> : submitted.map((s) => {
@@ -217,9 +221,11 @@ export function TeacherAssignmentDetail() {
           <p className="text-sm text-slate-600 dark:text-slate-300">{a.latePolicy === 'accept' ? 'Late work accepted.' : a.latePolicy === 'accept-penalty' ? 'Late work accepted with a penalty.' : 'Late work not accepted.'}</p>
         </Card>
       </div>
-      <Modal open={editing} onClose={() => setEditing(false)} title="Edit instructions">
-        <Textarea rows={6} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button><Button onClick={() => { updateAssignment(a.id, { instructions }); setEditing(false); toast('Instructions updated.') }}>Save changes</Button></div>
+      <Modal open={editing} onClose={() => setEditing(false)} title="Edit instructions and reference notes">
+        <Label htmlFor="edit-instructions">Instructions</Label>
+        <Textarea id="edit-instructions" rows={5} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+        <div className="mt-3"><Label htmlFor="edit-reference-notes">Reference notes for students</Label><Textarea id="edit-reference-notes" rows={5} value={referenceNotes} onChange={(e) => setReferenceNotes(e.target.value)} /></div>
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button><Button onClick={() => { updateAssignment(a.id, { instructions, referenceNotes: referenceNotes.trim() }); setEditing(false); toast('Assignment text updated.') }}>Save changes</Button></div>
       </Modal>
     </div>
   )
