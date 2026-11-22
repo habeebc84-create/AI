@@ -1,0 +1,74 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1140 >>
+stream
+BT /F2 20 Tf 56 780 Td (Python Reference Sheet) Tj ET
+BT /F1 11 Tf 56 748 Td 15 TL (FocusEd AI - Assessment reference sheet) Tj T*
+() Tj T*
+(INPUT AND OUTPUT) Tj T*
+(name = input\("Name: "\)) Tj T*
+(print\(f"Hello {name}"\)) Tj T*
+() Tj T*
+(CONDITIONALS) Tj T*
+(if score >= 90:) Tj T*
+(    grade = "A") Tj T*
+(elif score >= 75:) Tj T*
+(    grade = "B") Tj T*
+(else:) Tj T*
+(    grade = "C") Tj T*
+() Tj T*
+(LOOPS) Tj T*
+(for i in range\(1, 11\):      # 1 to 10) Tj T*
+(    print\(i\)) Tj T*
+(while speed > 0:) Tj T*
+(    speed = speed - 1) Tj T*
+() Tj T*
+(LISTS) Tj T*
+(marks = [17, 20, 15]) Tj T*
+(marks.append\(18\), marks[0], len\(marks\), sum\(marks\)) Tj T*
+(for mark in marks: print\(mark\)) Tj T*
+() Tj T*
+(DICTIONARIES) Tj T*
+(student = {"name": "Aarav", "grade": 10}) Tj T*
+(print\(student["name"]\)) Tj T*
+() Tj T*
+(FUNCTIONS) Tj T*
+(def average\(a, b\):) Tj T*
+(    return \(a + b\) / 2) Tj T*
+() Tj T*
+(COMMON ERRORS) Tj T*
+(IndentationError: check spaces at the start of the block.) Tj T*
+(NameError: a variable is used before it is defined.) Tj T*
+(TypeError: convert input\(\) text with int\(\) before doing maths.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000001442 00000 n 
+0000001539 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1641
+%%EOF

@@ -1,0 +1,63 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1184 >>
+stream
+BT /F2 20 Tf 56 780 Td (Science Lab Report Guide) Tj ET
+BT /F1 11 Tf 56 748 Td 15 TL (FocusEd AI - Assessment reference sheet) Tj T*
+() Tj T*
+(Every lab report should let another student repeat your experiment.) Tj T*
+() Tj T*
+(1. AIM) Tj T*
+(State the question and the variables you are testing \(independent,) Tj T*
+(dependent and two controlled variables\).) Tj T*
+() Tj T*
+(2. APPARATUS AND METHOD) Tj T*
+(List equipment with quantities. Write the method as numbered steps.) Tj T*
+(Include safety precautions and how you measured each variable.) Tj T*
+() Tj T*
+(3. RESULTS) Tj T*
+(Record raw readings in a table with units. Draw a graph with a title,) Tj T*
+(labelled axes and units. Plot averages, not single readings.) Tj T*
+() Tj T*
+(4. ANALYSIS) Tj T*
+(Describe the pattern or trend. Quote the gradient or intercept where) Tj T*
+(relevant. Explain the science behind the result.) Tj T*
+() Tj T*
+(5. CONCLUSION) Tj T*
+(Answer the aim directly, then support it with one number from your data.) Tj T*
+() Tj T*
+(6. SOURCES OF ERROR) Tj T*
+(Give at least two realistic errors \(measurement, timing, parallax,) Tj T*
+(heat loss\) and say how each would affect the result.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000001486 00000 n 
+0000001583 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1685
+%%EOF

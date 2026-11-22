@@ -1,0 +1,60 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1005 >>
+stream
+BT /F2 20 Tf 56 780 Td (Mathematics Reference Sheet) Tj ET
+BT /F1 11 Tf 56 748 Td 15 TL (FocusEd AI - Assessment reference sheet) Tj T*
+() Tj T*
+(QUADRATIC EQUATIONS) Tj T*
+(Standard form: ax^2 + bx + c = 0, with a not equal to 0.) Tj T*
+(Quadratic formula: x = \(-b +/- sqrt\(b^2 - 4ac\)\) / 2a) Tj T*
+(Discriminant D = b^2 - 4ac:) Tj T*
+(  D > 0 two real roots; D = 0 one repeated root; D < 0 no real roots.) Tj T*
+(Sum of roots = -b/a; product of roots = c/a.) Tj T*
+() Tj T*
+(ALGEBRAIC IDENTITIES) Tj T*
+(\(a + b\)^2 = a^2 + 2ab + b^2) Tj T*
+(\(a - b\)^2 = a^2 - 2ab + b^2) Tj T*
+(a^2 - b^2 = \(a + b\)\(a - b\)) Tj T*
+() Tj T*
+(TRIGONOMETRY) Tj T*
+(sin^2 x + cos^2 x = 1) Tj T*
+(tan x = sin x / cos x) Tj T*
+(For a right triangle: sin = opposite/hypotenuse, cos = adjacent/hypotenuse.) Tj T*
+() Tj T*
+(MENSURATION) Tj T*
+(Circle: area = pi r^2, circumference = 2 pi r.) Tj T*
+(Cylinder: volume = pi r^2 h, curved surface = 2 pi r h.) Tj T*
+(Sphere: volume = 4/3 pi r^3, surface = 4 pi r^2.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000001307 00000 n 
+0000001404 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1506
+%%EOF

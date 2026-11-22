@@ -10,6 +10,8 @@ function pagesFrom<T extends Record<string, ComponentType>>(load: () => Promise<
   return (name: keyof T) => lazy(async () => ({ default: (await load())[name] as ComponentType }))
 }
 
+const AssessmentPage = lazy(() => import('./pages/assessment'))
+
 const studentPage = pagesFrom(() => import('./pages/student'))
 const StudentDashboard = studentPage('StudentDashboard')
 const StudentAssignments = studentPage('StudentAssignments')
@@ -98,6 +100,7 @@ export default function App() {
             <Route path="/student/assignments" element={<StudentAssignments />} />
             <Route path="/student/assignments/:id" element={<StudentAssignmentDetail />} />
             <Route path="/student/submissions" element={<StudentSubmissions />} />
+            <Route path="/student/assessments" element={<AssessmentPage />} />
             <Route path="/student/focus" element={<FocusPage />} />
             <Route path="/student/focus/history" element={<FocusHistory />} />
             <Route path="/student/ai-tutor" element={<AiTutor />} />
@@ -119,6 +122,7 @@ export default function App() {
             <Route path="/teacher/assignments/create" element={<TeacherAssignmentCreate />} />
             <Route path="/teacher/assignments/:id" element={<TeacherAssignmentDetail />} />
             <Route path="/teacher/submissions" element={<TeacherSubmissions />} />
+            <Route path="/teacher/assessments" element={<AssessmentPage />} />
             <Route path="/teacher/submissions/:id" element={<TeacherSubmissionDetail />} />
             <Route path="/teacher/analytics" element={<TeacherAnalytics />} />
             <Route path="/teacher/announcements" element={<TeacherAnnouncements />} />
@@ -132,6 +136,7 @@ export default function App() {
             <Route path="/parent/dashboard" element={<ParentDashboard />} />
             <Route path="/parent/children" element={<ParentChildren />} />
             <Route path="/parent/assignments" element={<ParentAssignments />} />
+            <Route path="/parent/assessments" element={<AssessmentPage />} />
             <Route path="/parent/progress" element={<ParentProgress />} />
             <Route path="/parent/reports" element={<ParentReports />} />
             <Route path="/parent/notifications" element={<ParentNotifications />} />
@@ -145,6 +150,7 @@ export default function App() {
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/classes" element={<AdminClasses />} />
             <Route path="/admin/assignments" element={<AdminAssignments />} />
+            <Route path="/admin/assessments" element={<AssessmentPage />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/ai-settings" element={<AdminAiSettings />} />
             <Route path="/admin/security" element={<AdminSecurity />} />

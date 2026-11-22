@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Timer, Bot, CalendarDays, BarChart3, Bell, Settings, User,
   Users, Megaphone, Shield, FileText, LogOut, Menu, X, Search, Moon, Sun, GraduationCap,
-  ClipboardList, Home, Sparkles, ChevronRight,
+  ClipboardList, ClipboardCheck, Home, Sparkles, ChevronRight,
 } from 'lucide-react'
 import { focusDeadline, useStore, useCurrentUser } from '../lib/store'
 import { Toaster } from './ui'
@@ -40,6 +40,7 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
     { to: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/student/assignments', label: 'Assignments', icon: BookOpen },
     { to: '/student/submissions', label: 'Submissions', icon: ClipboardList },
+    { to: '/student/assessments', label: 'Assessments', icon: ClipboardCheck },
     { to: '/student/focus', label: 'Focus Mode', icon: Timer },
     { to: '/student/focus/history', label: 'Focus History', icon: Timer },
     { to: '/student/ai-tutor', label: 'AI Tutor', icon: Bot },
@@ -57,6 +58,7 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
     { to: '/teacher/assignments', label: 'Assignments', icon: BookOpen },
     { to: '/teacher/assignments/create', label: 'New Assignment', icon: FileText },
     { to: '/teacher/submissions', label: 'Submissions', icon: ClipboardList },
+    { to: '/teacher/assessments', label: 'Assessments', icon: ClipboardCheck },
     { to: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/teacher/announcements', label: 'Announcements', icon: Megaphone },
     { to: '/teacher/profile', label: 'Profile', icon: User },
@@ -67,6 +69,7 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
     { to: '/parent/children', label: 'My Children', icon: Users },
     { to: '/parent/assignments', label: 'Assignments', icon: BookOpen },
     { to: '/parent/progress', label: 'Progress', icon: BarChart3 },
+    { to: '/parent/assessments', label: 'Assessments', icon: ClipboardCheck },
     { to: '/parent/reports', label: 'Reports', icon: FileText },
     { to: '/parent/notifications', label: 'Notifications', icon: Bell },
     { to: '/parent/settings', label: 'Settings', icon: Settings },
@@ -76,6 +79,7 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
     { to: '/admin/users', label: 'Users', icon: Users },
     { to: '/admin/classes', label: 'Classes', icon: GraduationCap },
     { to: '/admin/assignments', label: 'Assignments', icon: BookOpen },
+    { to: '/admin/assessments', label: 'Assessments', icon: ClipboardCheck },
     { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/admin/ai-settings', label: 'AI Settings', icon: Bot },
     { to: '/admin/security', label: 'Security', icon: Shield },

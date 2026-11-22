@@ -395,7 +395,7 @@ export function AiTutor() {
   const [quiz, setQuiz] = useState<string[]>([])
   const conv = conversations.find((c) => c.id === convId) ?? conversations.filter((c) => c.studentId === user.id)[0]
   const endRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [conv?.messages.length])
+  useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }) }, [conv?.messages.length])
   const ask = (q: string) => {
     if (!q.trim()) return
     const id = sendTutorMessage(convId, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q)
