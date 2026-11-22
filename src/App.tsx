@@ -37,6 +37,7 @@ const TeacherAssignmentDetail = teacherPage('TeacherAssignmentDetail')
 const TeacherSubmissions = teacherPage('TeacherSubmissions')
 const TeacherSubmissionDetail = teacherPage('TeacherSubmissionDetail')
 const TeacherAnalytics = teacherPage('TeacherAnalytics')
+const TeacherNotifications = teacherPage('TeacherNotifications')
 const TeacherAnnouncements = teacherPage('TeacherAnnouncements')
 const TeacherProfile = teacherPage('TeacherProfile')
 const TeacherSettings = teacherPage('TeacherSettings')
@@ -128,6 +129,7 @@ export default function App() {
             <Route path="/teacher/assessments" element={<AssessmentPage />} />
             <Route path="/teacher/submissions/:id" element={<TeacherSubmissionDetail />} />
             <Route path="/teacher/analytics" element={<TeacherAnalytics />} />
+            <Route path="/teacher/notifications" element={<TeacherNotifications />} />
             <Route path="/teacher/announcements" element={<TeacherAnnouncements />} />
             <Route path="/teacher/profile" element={<TeacherProfile />} />
             <Route path="/teacher/settings" element={<TeacherSettings />} />

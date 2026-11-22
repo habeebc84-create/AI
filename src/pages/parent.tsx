@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Users, BookOpen, BarChart3, FileText, Bell, Download, GraduationCap } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
-import { PageHeader, Button, Card, Input, Label, Badge, statusBadge, EmptyState, toast } from '../components/ui'
+import { PageHeader, Button, Card, Input, Label, Select, Badge, statusBadge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
 
 function useChildren() {
@@ -82,16 +82,15 @@ export function ParentAssignments() {
   const children = useChildren()
   const { assignments, submissions } = useStore()
   const childIds = children.map((c) => c.id)
-  const list = assignments.filter((a) => a.status === 'published' && children.some((c) => c.classId === a.classId))
+  const list = children.flatMap((child) => assignments.filter((a) => a.status === 'published' && a.classId === child.classId).map((a) => ({ child, a })))
   return (
     <div>
       <PageHeader title="Assignments" sub="Assignments for your linked children, with submission status." />
       {list.length === 0 ? <EmptyState title="No assignments to show" body="When your child's teacher publishes work, it will appear here." /> : (
-        <div className="space-y-3">{list.map((a) => {
-          const child = children.find((c) => c.classId === a.classId)
+        <div className="space-y-3">{list.map(({ a, child }) => {
           const sub = submissions.find((s) => s.assignmentId === a.id && s.studentId === child?.id)
           return (
-            <Card key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <Card key={`${child.id}-${a.id}`} className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div><p className="font-display font-bold">{a.title}</p><p className="text-sm text-slate-500">{a.subject} · {child?.name} · due {fmtDateTime(a.dueAt)} · {a.maxMarks} marks</p></div>
               <div className="flex items-center gap-2">{statusBadge(sub?.status ?? 'not-started')}{sub?.grade !== null && sub?.grade !== undefined && <Badge color="emerald">{sub.grade}/{a.maxMarks}</Badge>}</div>
             </Card>
@@ -186,14 +185,15 @@ export function ParentSettings() {
   const user = useCurrentUser()!
   const [email, setEmail] = useState('')
   const [msg, setMsg] = useState('')
+  const [childId, setChildId] = useState('')
   const inviteGuardian = useStore((s) => s.inviteGuardian)
   const children = useChildren()
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const child = children[0]
-    if (!child) { setMsg('Link a child first — no linked student to attach this request to.'); return }
+    const child = children.find((item) => item.id === childId) ?? (children.length === 1 ? children[0] : undefined)
+    if (!child) { setMsg('Select a linked child first.'); return }
     const r = inviteGuardian(email, child.id)
-    setMsg(r.ok ? 'Invitation request sent. The guardian will see it on their dashboard.' : (r.error ?? 'Could not send the invitation.'))
+    setMsg(r.ok ? 'Invitation request sent. The guardian can accept it in My Children.' : (r.error ?? 'Could not send the invitation.'))
   }
   return (
     <div>
@@ -203,9 +203,10 @@ export function ParentSettings() {
         <h3 className="mt-6 font-display font-bold">Invite another guardian</h3>
         <p className="text-sm text-slate-500">Send a guardian-link request for your linked child. The other guardian must already have a parent account.</p>
         <form onSubmit={submit} className="mt-3 space-y-3">
-          <div><Label>Other guardian's email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guardian@example.com" /></div>
-          <Button type="submit">Send invitation</Button>
-          {msg && <p className="text-sm text-slate-600 dark:text-slate-300">{msg}</p>}
+          {children.length > 1 && <div><Label htmlFor="invite-child">Child</Label><Select id="invite-child" value={childId} onChange={(event) => setChildId(event.target.value)} required><option value="">Select a child</option>{children.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</Select></div>}
+          <div><Label htmlFor="invite-email">Other guardian's email</Label><Input id="invite-email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guardian@example.com" /></div>
+          <Button type="submit" disabled={!children.length}>Send invitation</Button>
+          {msg && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{msg}</p>}
         </form>
       </Card>
     </div>

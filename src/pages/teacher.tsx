@@ -128,7 +128,7 @@ export function TeacherAssignmentCreate() {
   const { classes, createAssignment } = useStore()
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
-  const [subject, setSubject] = useState('Mathematics')
+  const [subject, setSubject] = useState(() => classes.find((c) => c.teacherId === user.id)?.subject ?? 'Mathematics')
   const [classId, setClassId] = useState(classes.find((c) => c.teacherId === user.id)?.id ?? '')
   const [description, setDescription] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -140,6 +140,7 @@ export function TeacherAssignmentCreate() {
   const [latePolicy, setLatePolicy] = useState<'accept' | 'accept-penalty' | 'reject'>('accept-penalty')
   const [error, setError] = useState('')
   const myClasses = classes.filter((c) => c.teacherId === user.id)
+  const subjects = [...new Set(['Mathematics', 'Science', 'English', 'History', 'Computer Science', ...myClasses.map((item) => item.subject)])]
   const save = (e: FormEvent<HTMLFormElement>) => {
     const publish = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'publish'
     e.preventDefault()
@@ -150,33 +151,38 @@ export function TeacherAssignmentCreate() {
       return
     }
     const id = createAssignment({ title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
+    if (!id) { setError('Choose a class assigned to your account.'); return }
     toast(publish ? 'Assignment published — students notified.' : 'Draft saved.')
     navigate(`/teacher/assignments/${id}`)
   }
   return (
     <div>
       <PageHeader title="Create Assignment" sub="Fill in the details. Save as a draft, or publish straight away." />
+      {!myClasses.length ? <EmptyState title="No classes assigned" body="Ask an administrator to create a class and select your teacher account." /> :
       <form className="max-w-2xl space-y-4" onSubmit={save}>
         <Card className="space-y-4 p-6">
-          <div><Label>Title *</Label><Input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Quadratic Equations — Problem Set 5" /></div>
+          <div><Label htmlFor="teacher-title">Title *</Label><Input id="teacher-title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Quadratic Equations — Problem Set 5" /></div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label>Subject</Label><Select value={subject} onChange={(e) => setSubject(e.target.value)}>{['Mathematics', 'Science', 'English', 'History', 'Computer Science'].map((s) => <option key={s}>{s}</option>)}</Select></div>
-            <div><Label>Class *</Label><Select value={classId} onChange={(e) => setClassId(e.target.value)}>{myClasses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+            <div><Label htmlFor="teacher-subject">Subject</Label><Select id="teacher-subject" value={subject} onChange={(e) => setSubject(e.target.value)}>{subjects.map((s) => <option key={s}>{s}</option>)}</Select></div>
+            <div><Label htmlFor="teacher-class">Class *</Label><Select id="teacher-class" value={classId} onChange={(e) => {
+              setClassId(e.target.value)
+              setSubject(myClasses.find((item) => item.id === e.target.value)?.subject ?? subject)
+            }}>{myClasses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
           </div>
-          <div><Label>Description</Label><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short summary for the assignment list" /></div>
-          <div><Label>Instructions</Label><Textarea rows={5} required value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="What exactly should students do?" /></div>
+          <div><Label htmlFor="teacher-description">Description</Label><Textarea id="teacher-description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short summary for the assignment list" /></div>
+          <div><Label htmlFor="teacher-instructions">Instructions</Label><Textarea id="teacher-instructions" rows={5} required value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="What exactly should students do?" /></div>
           <div><Label htmlFor="assignment-reference">Reference notes for students</Label><Textarea id="assignment-reference" rows={5} value={referenceNotes} onChange={(e) => setReferenceNotes(e.target.value)} /></div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label>Due date & time</Label><Input type="datetime-local" required value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
-            <div><Label>Maximum marks</Label><Input type="number" min={1} max={100} value={maxMarks} onChange={(e) => setMaxMarks(Number(e.target.value))} /></div>
+            <div><Label htmlFor="teacher-due">Due date & time</Label><Input id="teacher-due" type="datetime-local" required value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-maximum">Maximum marks</Label><Input id="teacher-maximum" type="number" min={1} max={100} value={maxMarks} onChange={(e) => setMaxMarks(Number(e.target.value))} /></div>
           </div>
-          <div><Label>Submission format</Label><Input value={format} onChange={(e) => setFormat(e.target.value)} /></div>
-          <div><Label>Rubric (optional)</Label><Textarea rows={2} value={rubric} onChange={(e) => setRubric(e.target.value)} placeholder="How will this be marked?" /></div>
-          <div><Label>Late submission policy</Label><Select value={latePolicy} onChange={(e) => setLatePolicy(e.target.value as typeof latePolicy)}><option value="accept">Accept late work</option><option value="accept-penalty">Accept late with penalty</option><option value="reject">Do not accept late work</option></Select></div>
+          <div><Label htmlFor="teacher-submission">Submission format</Label><Input id="teacher-submission" value={format} onChange={(e) => setFormat(e.target.value)} /></div>
+          <div><Label htmlFor="teacher-rubric">Rubric (optional)</Label><Textarea id="teacher-rubric" rows={2} value={rubric} onChange={(e) => setRubric(e.target.value)} placeholder="How will this be marked?" /></div>
+          <div><Label htmlFor="teacher-late">Late submission policy</Label><Select id="teacher-late" value={latePolicy} onChange={(e) => setLatePolicy(e.target.value as typeof latePolicy)}><option value="accept">Accept late work</option><option value="accept-penalty">Accept late with penalty</option><option value="reject">Do not accept late work</option></Select></div>
           {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{error}</p>}
           <div className="flex gap-2"><Button type="submit" variant="outline">Save draft</Button><Button type="submit" value="publish"><Send className="h-4 w-4" /> Publish assignment</Button></div>
         </Card>
-      </form>
+      </form>}
     </div>
   )
 }
@@ -292,8 +298,8 @@ export function TeacherSubmissionDetail() {
           <h2 className="font-display font-bold">Grade & feedback</h2>
           {s.grade !== null && <p className="mt-2 text-sm">Current grade: <strong>{s.grade}/{a.maxMarks}</strong></p>}
           {s.feedback && <p className="mt-2 rounded-xl bg-slate-50 p-3 text-sm dark:bg-navy-800">{s.feedback}</p>}
-          <div className="mt-4"><Label>Grade (0–{a.maxMarks})</Label><Input type="number" min={0} max={a.maxMarks} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={`e.g. ${Math.round(a.maxMarks * 0.85)}`} /></div>
-          <div className="mt-4"><Label>Written feedback</Label><Textarea rows={4} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What went well? What should they improve?" /></div>
+          <div className="mt-4"><Label htmlFor="grade-score">Grade (0–{a.maxMarks})</Label><Input id="grade-score" type="number" min={0} max={a.maxMarks} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={`e.g. ${Math.round(a.maxMarks * 0.85)}`} /></div>
+          <div className="mt-4"><Label htmlFor="grade-feedback">Written feedback</Label><Textarea id="grade-feedback" rows={4} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What went well? What should they improve?" /></div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={() => { const g = Number(grade); if (!grade.trim() || !Number.isFinite(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } gradeSubmission(s.id, g, feedback); toast('Grade published — student and guardian notified.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
             <Button variant="outline" onClick={() => { if (!feedback.trim()) { toast('Add feedback explaining what to revise.', 'error'); return } returnForRevision(s.id, feedback); toast('Returned for revision.'); navigate('/teacher/submissions') }}><RotateCcw className="h-4 w-4" /> Return for revision</Button>
@@ -390,6 +396,27 @@ export function TeacherSettings() {
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Focus data is private to each student by default and is not shown to teachers. Only assignment and submission records are shared with you.</p>
         <Link to="/teacher/announcements" className="mt-4 inline-block"><Button variant="outline"><Megaphone className="h-4 w-4" /> Manage announcements</Button></Link>
       </Card>
+    </div>
+  )
+}
+
+
+export function TeacherNotifications() {
+  const user = useCurrentUser()!
+  const { notifications, markRead, markAllRead } = useStore()
+  const notices = notifications.filter((notice) => notice.userId === user.id)
+  return (
+    <div>
+      <PageHeader title="Notifications" sub="New submissions and updates for your classes."
+        action={<Button variant="outline" disabled={!notices.some((notice) => !notice.read)} onClick={() => markAllRead(user.id)}>Mark all read</Button>} />
+      {!notices.length && <EmptyState title="You're caught up" body="New submissions will appear here." />}
+      <div className="space-y-3">{notices.map((notice) => (
+        <Card key={notice.id} className="flex items-start justify-between gap-3 p-4">
+          <div><Link to={notice.link} className="font-semibold hover:underline" onClick={() => markRead(notice.id)}>{notice.title}</Link>
+            <p className="text-sm text-slate-500">{notice.body}</p><p className="mt-1 text-xs text-slate-500">{fmtDateTime(notice.createdAt)}</p></div>
+          {!notice.read && <Badge color="indigo">New</Badge>}
+        </Card>
+      ))}</div>
     </div>
   )
 }

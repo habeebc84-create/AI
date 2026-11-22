@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Timer, Bot, CalendarDays, BarChart3, Bell, Settings, User,
   Users, Megaphone, Shield, FileText, LogOut, Menu, X, Search, Moon, Sun, GraduationCap,
@@ -60,6 +60,7 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
     { to: '/teacher/submissions', label: 'Submissions', icon: ClipboardList },
     { to: '/teacher/assessments', label: 'Assessments', icon: ClipboardCheck },
     { to: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/teacher/notifications', label: 'Notifications', icon: Bell },
     { to: '/teacher/announcements', label: 'Announcements', icon: Megaphone },
     { to: '/teacher/profile', label: 'Profile', icon: User },
     { to: '/teacher/settings', label: 'Settings', icon: Settings },
@@ -160,6 +161,7 @@ export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const logout = useStore((s) => s.logout)
   const notifications = useStore((s) => s.notifications)
   const activeFocus = useStore((s) => s.activeFocus)
@@ -169,10 +171,10 @@ export function AppShell() {
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setSearchOpen(false); setMenuOpen(false); return }
       if (focusLocked) return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen((o) => !o) }
       if (e.key === '/' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); setSearchOpen(true) }
-      if (e.key === 'Escape') setSearchOpen(false)
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
@@ -185,12 +187,21 @@ export function AppShell() {
     toast('Finish your focus session to open other pages.', 'info')
   }
   const nav = NAV[user.role]
-  const notifPath = user.role === 'student' ? '/student/notifications' : user.role === 'parent' ? '/parent/notifications' : user.role === 'teacher' ? '/teacher/dashboard' : '/admin/dashboard'
+  const notifPath = user.role === 'admin' ? null : `/${user.role}/notifications`
+  const quickPaths = {
+    student: ['/student/dashboard', '/student/focus', '/student/ai-tutor'],
+    teacher: ['/teacher/dashboard', '/teacher/assignments/create', '/teacher/submissions'],
+    parent: ['/parent/dashboard', '/parent/children', '/parent/notifications'],
+    admin: ['/admin/dashboard', '/admin/users', '/admin/classes'],
+  }
+  const quickItems = quickPaths[user.role].flatMap((path) => nav.filter((item) => item.to === path))
+  const pageName = nav.find((item) => item.to === pathname)?.label ?? 'Workspace'
 
   return (
     <div className="min-h-screen bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
       <div className="flex">
-        <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col transform border-r border-slate-200 bg-white transition-transform dark:border-slate-700 dark:bg-navy-900 lg:sticky lg:top-0 lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Main navigation">
+        {menuOpen && <button type="button" aria-label="Dismiss navigation" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden" />}
+        <aside id="workspace-navigation" className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col transform border-r border-slate-200 bg-white transition-transform dark:border-slate-700 dark:bg-navy-900 lg:sticky lg:top-0 lg:translate-x-0 ${menuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`} aria-label="Main navigation">
           <div className="flex h-16 shrink-0 items-center justify-between px-4"><Logo to={HOME[user.role]} /><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button></div>
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
             {nav.map((item) => {
@@ -222,18 +233,18 @@ export function AppShell() {
 
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 dark:border-slate-700 dark:bg-navy-900">
-            <button className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
+            <button className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu" aria-controls="workspace-navigation" aria-expanded={menuOpen}><Menu className="h-5 w-5" /></button>
             <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : setSearchOpen(true)} aria-disabled={focusLocked} className={`flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-slate-600 ${focusLocked ? 'opacity-50' : ''}`} aria-label="Search (Ctrl+K)">
               <Search className="h-4 w-4" /> <span className="hidden sm:inline">Search…</span> <kbd className="hidden rounded bg-slate-100 px-1.5 sm:inline font-mono text-xs dark:bg-navy-800">Ctrl K</kbd>
             </button>
-            <div className="flex-1" />
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-600 dark:text-slate-300">{pageName}</p>
             <button onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800">
               {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : navigate(notifPath)} aria-disabled={focusLocked} aria-label={`Notifications, ${unread} unread`} className={`relative rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800 ${focusLocked ? 'opacity-50' : ''}`}>
+            {notifPath && <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : navigate(notifPath)} aria-disabled={focusLocked} aria-label={`Notifications, ${unread} unread`} className={`relative rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800 ${focusLocked ? 'opacity-50' : ''}`}>
               <Bell className="h-5 w-5" />
               {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">{unread}</span>}
-            </button>
+            </button>}
           </header>
           {focusLocked && (
             <p className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200" role="status">
@@ -245,12 +256,15 @@ export function AppShell() {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex justify-around border-t border-slate-200 bg-white py-2 lg:hidden dark:border-slate-700 dark:bg-navy-900" aria-label="Quick actions">
-        <Link to={HOME[user.role]} onClick={lockTab} className="flex flex-col items-center gap-0.5 text-xs"><Home className="h-5 w-5" />Home</Link>
-        <Link to={user.role === 'student' ? '/student/focus' : user.role === 'teacher' ? '/teacher/assignments/create' : HOME[user.role]} onClick={lockTab} className="flex flex-col items-center gap-0.5 text-xs"><Sparkles className="h-5 w-5" />{user.role === 'student' ? 'Focus' : user.role === 'teacher' ? 'Create' : 'Home'}</Link>
-        <Link to={user.role === 'student' ? '/student/ai-tutor' : user.role === 'teacher' ? '/teacher/submissions' : notifPath} onClick={lockTab} className="flex flex-col items-center gap-0.5 text-xs"><Bot className="h-5 w-5" />{user.role === 'student' ? 'AI Tutor' : user.role === 'teacher' ? 'Review' : 'Alerts'}</Link>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex justify-around border-t border-slate-200 bg-white pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] lg:hidden dark:border-slate-700 dark:bg-navy-900" aria-label="Quick actions">
+        {quickItems.map((item) => (
+          <NavLink key={item.to} to={item.to} end onClick={item.to === '/student/focus' ? undefined : lockTab}
+            className={({ isActive }) => `flex min-w-20 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-xs ${isActive ? 'bg-royal-500/10 font-semibold text-royal-600 dark:text-royal-400' : 'text-slate-600 dark:text-slate-300'}`}>
+            <item.icon className="h-5 w-5" aria-hidden="true" />{item.to === HOME[user.role] ? 'Home' : item.label === 'Focus Mode' ? 'Focus' : item.label === 'New Assignment' ? 'Create' : item.label}
+          </NavLink>
+        ))}
       </nav>
-      <div className="h-14 lg:hidden" />
+      <div className="h-[calc(4rem+env(safe-area-inset-bottom))] lg:hidden" />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
       <Toaster />
     </div>
