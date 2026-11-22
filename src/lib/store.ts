@@ -6,7 +6,7 @@ import type {
   Submission, User,
 } from './types'
 import { buildSeed, DEMO_PASSWORD, type SeedData } from './seed'
-import { generateTutorReply } from './ai'
+import { generateTutorReply, type TutorLevel } from './ai'
 import { uid, storedFileBytes, LOCAL_FILE_BUDGET_BYTES } from './utils'
 
 // Local-only storage: all data lives in this computer's browser
@@ -70,7 +70,7 @@ interface AppState extends SeedData {
   recordVisibility: (hidden: boolean) => void
   setFocusPrefs: (p: Partial<FocusPrefs>) => void
   // ai
-  sendTutorMessage: (conversationId: string | null, assignmentId: string | null, subject: string, question: string) => string
+  sendTutorMessage: (conversationId: string | null, assignmentId: string | null, subject: string, question: string, level?: TutorLevel) => string
   // planner
   saveStudyPlan: (items: StudyPlan['items']) => void
   togglePlanItem: (itemId: string) => void
@@ -298,11 +298,11 @@ export const useStore = create<AppState>()(
       },
       setFocusPrefs: (p) => set((s) => ({ focusPrefs: { ...s.focusPrefs, ...p } })),
 
-      sendTutorMessage: (conversationId, assignmentId, subject, question) => {
+      sendTutorMessage: (conversationId, assignmentId, subject, question, level = 'hint') => {
         const userId = get().currentUserId
         if (!userId || !question.trim()) return conversationId ?? ''
         const assignment = get().assignments.find((a) => a.id === assignmentId)
-        const reply = generateTutorReply(question, assignment?.title ?? '', subject)
+        const reply = generateTutorReply(question, assignment?.title ?? '', subject, level)
         const answer = `**${reply.heading}**\n\n${reply.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n**Hint:** ${reply.hint}\n\n**Try it yourself:**\n${reply.practice.map((p) => `• ${p}`).join('\n')}\n\n_${reply.note}_`
         let id = conversationId
         if (!id) {

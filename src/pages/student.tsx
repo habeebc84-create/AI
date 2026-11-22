@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   BookOpen, Timer, Bot, CalendarDays, BarChart3, Play, Pause, CheckCircle2,
   Clock, Download, Send, Plus, Trash2, Sparkles, AlertTriangle, FileText, Search, Bell,
@@ -8,7 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
-import { SUGGESTED_PROMPTS, generateQuiz } from '../lib/ai'
+import { SUGGESTED_PROMPTS, generateQuiz, type TutorLevel } from '../lib/ai'
 import { REFERENCE_BOOKS } from '../lib/reference'
 import type { Assignment, User } from '../lib/types'
 
@@ -79,10 +79,28 @@ export function StudentDashboard() {
     return { day: day.toLocaleDateString(undefined, { weekday: 'short' }), minutes: Math.round(mins) }
   })
   const unread = notifications.filter((n) => n.userId === user.id && !n.read)
+  const nextUp = pending[0]
+  const recommendedMin = nextUp ? Math.min(50, Math.max(25, Math.round((nextUp.maxMarks || 20) * 1.5))) : 25
   return (
     <div>
       <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} sub="Your homework and study tasks." action={!activeFocus && <Link to="/student/focus"><Button><Play className="h-4 w-4" /> Start focus session</Button></Link>} />
       <CurrentSession />
+      {nextUp && !activeFocus && (
+        <Card className="mb-4 border-royal-400/60 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-royal-500">Next best step</p>
+              <h2 className="mt-1 font-display text-lg font-bold">{nextUp.title}</h2>
+              <p className="text-sm text-slate-500">{nextUp.subject} · due {fmtDateTime(nextUp.dueAt)} · {nextUp.maxMarks} marks{minsUntil(nextUp.dueAt) < 0 ? ' · overdue' : minsUntil(nextUp.dueAt) <= 48 * 60 ? ' · due soon' : ''}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/student/focus?assignment=${nextUp.id}&minutes=${recommendedMin}`}><Button><Play className="h-4 w-4" /> Start {recommendedMin}-min focus</Button></Link>
+              <Link to={`/student/ai-tutor?assignment=${nextUp.id}`}><Button variant="outline"><Bot className="h-4 w-4" /> Ask AI Tutor</Button></Link>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Chosen from your earliest deadline. The tutor answers from the {nextUp.subject} reference book, and the focus timer records the session for you.</p>
+        </Card>
+      )}
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <Card className="p-5"><h2 className="font-display text-lg font-bold">Homework to do</h2>
           {pending.map((a) => <Link key={a.id} to={`/student/assignments/${a.id}`} className="mt-3 block rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
@@ -168,7 +186,7 @@ export function StudentAssignmentDetail() {
 
 function AssignmentDetailForm({ id }: { id?: string }) {
   const user = useCurrentUser()!
-  const { assignments, submissions, saveDraft, submitAssignment } = useStore()
+  const { assignments, submissions, saveDraft, submitAssignment, studyPlans, saveStudyPlan } = useStore()
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [files, setFiles] = useState<StoredFile[]>([])
@@ -215,6 +233,27 @@ function AssignmentDetailForm({ id }: { id?: string }) {
     toast(r.late ? 'Submitted late — penalty policy applies.' : 'Assignment submitted successfully!')
     navigate('/student/submissions')
   }
+  const breakIntoTasks = () => {
+    const due = new Date(a.dueAt)
+    const cursor = new Date()
+    cursor.setHours(0, 0, 0, 0)
+    if (new Date().getHours() >= 20) cursor.setDate(cursor.getDate() + 1)
+    const days: string[] = []
+    while (cursor <= due && days.length < 7) {
+      days.push(cursor.toISOString().slice(0, 10))
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    if (days.length === 0) days.push(new Date().toISOString().slice(0, 10))
+    const blocks = buildStudyPlan([
+      { assignmentId: a.id, title: `Read the brief — ${a.title}`, dueAt: a.dueAt, estMinutes: 15 },
+      { assignmentId: a.id, title: `Draft — ${a.title}`, dueAt: a.dueAt, estMinutes: a.maxMarks >= 20 ? 50 : 35 },
+      { assignmentId: a.id, title: `Check against the rubric — ${a.title}`, dueAt: a.dueAt, estMinutes: 20 },
+    ], days, 16 * 60, 20 * 60, 10)
+    const plan = studyPlans.find((p) => p.studentId === user.id)
+    const kept = (plan?.items ?? []).filter((i) => i.assignmentId !== a.id)
+    saveStudyPlan([...kept, ...blocks.map((b) => ({ id: uid('pi'), assignmentId: b.assignmentId, title: b.title, date: b.date, startMin: b.startMin, durationMin: b.durationMin, done: false }))])
+    toast(`Added ${blocks.length} study tasks to your planner, working back from the deadline.`)
+  }
   return (
     <div>
       <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<Link to="/student/ai-tutor"><Button variant="outline"><Bot className="h-4 w-4" /> Ask AI Tutor</Button></Link>} />
@@ -225,6 +264,11 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           <p className="mt-2 whitespace-pre-line text-slate-700 dark:text-slate-200">{a.instructions}</p>
           <p className="mt-4 text-sm text-slate-500">{a.description}</p>
           {a.rubric && <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm dark:bg-navy-800"><p className="font-semibold">Rubric</p><p className="mt-1 text-slate-600 dark:text-slate-300">{a.rubric}</p></div>}
+          <div className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+            <p className="font-display font-bold">Plan this work</p>
+            <p className="mt-1 text-sm text-slate-500">Break it into three scheduled tasks in your study planner, working back from the deadline.</p>
+            <Button className="mt-3" variant="outline" onClick={breakIntoTasks}><CalendarDays className="h-4 w-4" /> Break into study tasks</Button>
+          </div>
           <h3 className="mt-6 font-display font-bold">Attachments</h3>
           {a.attachments.length === 0 ? <p className="mt-1 text-sm text-slate-500">No attachments.</p> : a.attachments.map((f) => (
             <button key={f.name} onClick={() => downloadAttachment(f.name)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-royal-500 dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
@@ -377,10 +421,13 @@ function FocusDial({ planned }: { planned: number }) {
 export function FocusPage() {
   const user = useCurrentUser()!
   const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents } = useStore()
-  const [assignmentId, setAssignmentId] = useState('')
+  const [params] = useSearchParams()
+  const queryMinutes = Number(params.get('minutes'))
+  const hasQueryMinutes = Number.isFinite(queryMinutes) && queryMinutes >= 5 && queryMinutes <= 180
+  const [assignmentId, setAssignmentId] = useState(params.get('assignment') ?? '')
   const [goal, setGoal] = useState('')
-  const [mode, setMode] = useState<'pomodoro' | 'short-break' | 'long-break' | 'custom'>('pomodoro')
-  const [customMin, setCustomMin] = useState(45)
+  const [mode, setMode] = useState<'pomodoro' | 'short-break' | 'long-break' | 'custom'>(hasQueryMinutes ? 'custom' : 'pomodoro')
+  const [customMin, setCustomMin] = useState(hasQueryMinutes ? queryMinutes : 45)
   const [rating, setRating] = useState<number | null>(null)
   const [reflection, setReflection] = useState('')
   const [showSummary, setShowSummary] = useState(false)
@@ -472,17 +519,19 @@ export function FocusHistory() {
 export function AiTutor() {
   const user = useCurrentUser()!
   const { assignments, conversations, sendTutorMessage } = useStore()
+  const [params] = useSearchParams()
   const [convId, setConvId] = useState<string | null>(null)
-  const [assignmentId, setAssignmentId] = useState('')
+  const [assignmentId, setAssignmentId] = useState(params.get('assignment') ?? '')
   const [question, setQuestion] = useState('')
+  const [lastQuestion, setLastQuestion] = useState('')
   const [quiz, setQuiz] = useState<string[]>([])
   const conv = conversations.find((c) => c.id === convId) ?? conversations.filter((c) => c.studentId === user.id)[0]
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }) }, [conv?.messages.length])
-  const ask = (q: string) => {
+  const ask = (q: string, level: TutorLevel = 'hint') => {
     if (!q.trim()) return
-    const id = sendTutorMessage(convId, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q)
-    setConvId(id); setQuestion('')
+    const id = sendTutorMessage(convId, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q, level)
+    setConvId(id); setLastQuestion(q); setQuestion('')
   }
   const submit = (e: FormEvent) => { e.preventDefault(); ask(question) }
   const assignment = assignments.find((a) => a.id === assignmentId)
@@ -499,6 +548,7 @@ export function AiTutor() {
             <Select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)} className="w-64" aria-label="Assignment context"><option value="">General question (no assignment)</option>{assignments.filter((a) => a.status === 'published' && a.classId === user.classId).map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}</Select>
             <Button variant="outline" size="sm" onClick={() => { setConvId(null) }}><Plus className="h-4 w-4" /> New chat</Button>
           </div>
+          {assignment && <p className="mb-2 text-xs text-slate-500">Studying “{assignment.title}” · due {fmtDateTime(assignment.dueAt)} · {assignment.maxMarks} marks{assignment.rubric ? ` · Rubric: ${assignment.rubric}` : ''}</p>}
           <div className="flex-1 space-y-3 overflow-y-auto pr-1" aria-live="polite">
             {!conv || conv.messages.length === 0 ? (
               <div className="py-10 text-center"><Bot className="mx-auto h-10 w-10 text-royal-500" /><p className="mt-3 font-display font-bold">Ask me anything about your homework</p><p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">I answer from your class reference books, then give hints step by step — you do the solving.</p></div>
@@ -508,6 +558,13 @@ export function AiTutor() {
               </div>
             ))}
             <div ref={endRef} />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Adjust help:</span>
+            {([['Give a hint', 'hint'], ['Explain simply', 'explain'], ['Practice question', 'practice']] as const).map(([label, lvl]) => (
+              <button key={lvl} onClick={() => ask(lastQuestion || question || `How do I start ${assignment?.title ?? 'this topic'}?`, lvl)}
+                className="rounded-full border border-royal-500/40 bg-royal-500/5 px-3 py-1 text-xs font-semibold text-royal-600 hover:border-royal-500 dark:text-royal-400">{label}</button>
+            ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">{SUGGESTED_PROMPTS.map((p) => (<button key={p} onClick={() => ask(p)} className="rounded-full border border-slate-300 px-3 py-1 text-xs hover:border-royal-500 dark:border-slate-600">{p}</button>))}</div>
           <form onSubmit={submit} className="mt-3 flex gap-2">
@@ -622,6 +679,14 @@ export function StudentAnalytics() {
     const done = mySubs.filter((s) => s.submittedAt && assignments.find((a) => a.id === s.assignmentId)?.subject === subj).length
     return { subject: subj, total, done }
   })
+  const subjectScores = [...new Set(mine.map((a) => a.subject))].map((subj) => {
+    const graded = mySubs.filter((s) => s.grade !== null && assignments.find((a) => a.id === s.assignmentId)?.subject === subj)
+    const avg = graded.length
+      ? Math.round(graded.reduce((t, s) => t + completionRate(s.grade ?? 0, assignments.find((a) => a.id === s.assignmentId)?.maxMarks ?? 1), 0) / graded.length)
+      : null
+    return { subject: subj, avg, graded: graded.length, book: REFERENCE_BOOKS.find((b) => b.subject === subj) }
+  })
+  const gaps = subjectScores.filter((s) => s.avg !== null && s.avg < 60).sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
   const weekData = [6, 5, 4, 3, 2, 1, 0].map((d) => {
     const day = new Date(Date.now() - d * 86400000)
     const mins = focusSessions.filter((s) => s.studentId === user.id && new Date(s.startedAt).toDateString() === day.toDateString()).reduce((t, s) => t + s.activeMs, 0) / 60000
@@ -646,6 +711,25 @@ export function StudentAnalytics() {
           <ul className="mt-2 space-y-1 text-sm">{bySubject.map((b, i) => <li key={b.subject}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />{b.subject}: {b.done}/{b.total} done</li>)}</ul>
         </Card>
       </div>
+      <Card className="mt-4 p-5">
+        <h2 className="font-display font-bold">Learning gaps & practice</h2>
+        <p className="text-sm text-slate-500">Detected only from your graded work. Revision links to the same reference books the tutor answers from.</p>
+        {gaps.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-500">{subjectScores.some((s) => s.avg !== null) ? 'No subject is below 60% in your graded work — keep it up.' : 'No graded work yet, so no gaps can be detected.'}</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {gaps.map((g) => (
+              <li key={g.subject} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-2.5 text-sm dark:bg-navy-800">
+                <span><strong>{g.subject}</strong> · {g.avg}% average across {g.graded} graded {g.graded === 1 ? 'result' : 'results'}</span>
+                <span className="flex gap-3">
+                  {g.book && <a href={g.book.file} download className="font-semibold text-royal-500 underline">Revision PDF</a>}
+                  <Link to="/student/assessments" className="font-semibold text-royal-500 underline">Practise</Link>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   )
 }

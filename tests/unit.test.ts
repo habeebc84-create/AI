@@ -75,6 +75,15 @@ describe('AI tutor demo hints', () => {
   it('generates practice questions', () => {
     expect(generateQuiz('Mathematics', 'Quadratic Equations')).toHaveLength(3)
   })
+  it('adapts the help level: hint, explain and practice', () => {
+    const hint = generateTutorReply('How do I solve x² + 5x + 6 = 0?', 'Quadratic Equations', 'Mathematics', 'hint')
+    const explain = generateTutorReply('How do I solve x² + 5x + 6 = 0?', 'Quadratic Equations', 'Mathematics', 'explain')
+    const practice = generateTutorReply('How do I solve x² + 5x + 6 = 0?', 'Quadratic Equations', 'Mathematics', 'practice')
+    expect(explain.steps.length).toBeGreaterThan(hint.steps.length)
+    expect(practice.heading).toMatch(/practice/i)
+    expect(practice.steps).toHaveLength(2)
+    expect(hint.note).toMatch(/reference book/i)
+  })
 })
 
 describe('Local-only file storage (this computer)', () => {

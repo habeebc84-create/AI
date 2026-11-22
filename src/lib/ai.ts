@@ -16,6 +16,8 @@ export interface TutorReply {
   note: string
 }
 
+export type TutorLevel = 'hint' | 'explain' | 'practice'
+
 const FALLBACK: Omit<TutorReply, 'note'> = {
   heading: 'Let’s work through it together',
   steps: [
@@ -32,19 +34,43 @@ const FALLBACK: Omit<TutorReply, 'note'> = {
   ],
 }
 
-export function generateTutorReply(question: string, assignmentTitle = '', subject = ''): TutorReply {
+export function generateTutorReply(question: string, assignmentTitle = '', subject = '', level: TutorLevel = 'hint'): TutorReply {
   const hay = `${question} ${assignmentTitle}`.trim()
   const reference = findReferenceSection(subject, hay)
   if (reference) {
+    const { book, section } = reference
+    const note = `Taken from the built-in ${book.title}, not from ChatGPT or any external AI. The tutor guides you; your work stays your own.`
+    if (level === 'explain') {
+      return {
+        heading: `${book.title}: ${section.heading} — explained`,
+        steps: [
+          ...section.facts,
+          'Read each line back and say which one applies to your question before writing anything.',
+        ],
+        hint: section.hint,
+        practice: section.practice,
+        note,
+      }
+    }
+    if (level === 'practice') {
+      return {
+        heading: `${book.title}: practice ${section.heading.toLowerCase()}`,
+        steps: section.practice.map((p, i) => `Practice ${i + 1}: ${p}`),
+        hint: 'Try both problems before checking your working against the reference.',
+        practice: section.practice,
+        note,
+      }
+    }
     return {
-      heading: `${reference.book.title}: ${reference.section.heading}`,
+      heading: `${book.title}: ${section.heading}`,
       steps: [
-        ...reference.section.facts,
-        'Now apply the reference to your own question and write the first line of working.',
+        section.facts[0],
+        section.facts[1] ?? section.facts[0],
+        `Before I say more: describe in your own words which part of ${section.heading.toLowerCase()} is unclear.`,
       ],
-      hint: reference.section.hint,
-      practice: reference.section.practice,
-      note: `Taken from the built-in ${reference.book.title}, not from ChatGPT or any external AI. The tutor guides you; your work stays your own.`,
+      hint: section.hint,
+      practice: [section.practice[0]],
+      note,
     }
   }
   return {
