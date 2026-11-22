@@ -12,7 +12,7 @@ import { uid, storedFileBytes, LOCAL_FILE_BUDGET_BYTES } from './utils'
 
 // Local-only storage: all data lives in this computer's browser
 // (localStorage). There is no server or cloud sync by design.
-export const DEMO_MODE = true
+export const DEMO_MODE = import.meta.env?.MODE !== "laptop"
 export const FOCUS_LOSS_LIMIT = 5
 
 export interface ActiveFocus {
@@ -46,7 +46,7 @@ type ActionResult = { ok: boolean; error?: string }
 
 type NewNotification = Omit<AppNotification, 'id' | 'read' | 'createdAt'>
 
-interface AppState extends SeedData {
+export interface AppState extends SeedData {
   institutionName: string
   saveInstitutionName: (name: string) => ActionResult
   addAccount: (name: string, email: string, password: string, role: Role, classId: string) => ActionResult
@@ -130,6 +130,7 @@ export function useStorageWriteFailure() {
 // quota likewise keeps the session working in memory instead of throwing.
 const safeLocalStorage = {
   getItem: (name: string): string | null => {
+    if (!DEMO_MODE || typeof localStorage === 'undefined') return null
     try {
       const raw = localStorage.getItem(name)
       if (!raw) return null
@@ -140,6 +141,7 @@ const safeLocalStorage = {
     }
   },
   setItem: (name: string, value: string) => {
+    if (!DEMO_MODE || typeof localStorage === 'undefined') return
     try {
       localStorage.setItem(name, value)
       setStorageWriteFailed(false)
@@ -179,7 +181,7 @@ function currentActor(state: AppState, role: Role) {
   return state.users.find((user) => user.id === state.currentUserId && user.role === role)
 }
 
-function persistedFields(s: AppState) {
+export function persistedFields(s: AppState) {
   return {
     institutionName: s.institutionName, users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
     focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
@@ -482,7 +484,7 @@ export const useStore = create<AppState>()(
         else set((s) => ({ studyPlans: [...s.studyPlans, { id: uid('plan'), studentId: userId, weekStart: new Date().toISOString(), items }] }))
       },
       togglePlanItem: (itemId) => set((s) => ({
-        studyPlans: s.studyPlans.map((p) => ({ ...p, items: p.items.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i)) })),
+        studyPlans: s.studyPlans.map((p) => p.studentId === s.currentUserId ? { ...p, items: p.items.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i)) } : p),
       })),
 
       markRead: (id) => set((s) => ({ notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) })),

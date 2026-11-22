@@ -1,3 +1,4 @@
+import { runAction } from '../lib/laptop'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -6,7 +7,7 @@ import {
 } from 'lucide-react'
 import { PublicLayout } from '../components/layout'
 import { Button, LinkButton, Card, Input, Label, Textarea, Badge, ProgressRing, toast } from '../components/ui'
-import { useStore, demoAccounts, DEMO_PASSWORD } from '../lib/store'
+import { useStore, demoAccounts, DEMO_PASSWORD, DEMO_MODE } from '../lib/store'
 
 /** Clearly labelled product preview — sample data, not a real student's record. */
 function HeroPreview() {
@@ -85,7 +86,7 @@ export function Landing() {
               <LinkButton to="/register" size="lg">Get Started Free <ArrowRight className="h-4 w-4" /></LinkButton>
               <LinkButton to="/features" size="lg" variant="outline">Explore Features</LinkButton>
             </div>
-            <p className="mt-4 text-sm text-slate-500">Free for the capstone demo · No card required · Sample accounts on the login page</p>
+            <p className="mt-4 text-sm text-slate-500">{DEMO_MODE ? 'Sample accounts are available on the login page.' : 'Use the account issued by your college administrator.'}</p>
           </div>
           <div><HeroPreview /></div>
         </div>
@@ -136,7 +137,7 @@ export function Landing() {
                 ['Does FocusEd AI watch me through my camera?', 'No. There is no webcam, microphone or screen recording. Tab-visibility events only record when this tab is hidden — and a hidden tab is treated as a limited signal, not proof of distraction.'],
                 ['Does the AI do my homework for me?', 'No. The tutor gives progressive hints, asks guiding questions and explains concepts. For graded work it defaults to learning-oriented guidance.'],
                 ['Can parents see everything?', 'No. Parents see only linked children, only permitted assignment progress and grades — never AI chat transcripts or private focus reflections.'],
-                ['Is my data real or demo data?', 'Your data is stored only on this computer, in this browser. The accounts provided to try the app are clearly labelled sample accounts — register your own to use it for real.'],
+                ['Is my data real or demo data?', DEMO_MODE ? 'Demo records are stored in this browser profile. Sample accounts are available on the login page.' : 'This workspace stores records on the host laptop. The administrator creates your account.'],
               ].map(([q, a]) => (
                 <Card key={q} className="p-5"><p className="font-semibold">{q}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{a}</p></Card>
               ))}
@@ -273,10 +274,10 @@ export function Privacy() {
           <p><strong>1. Data we collect.</strong> Only what the platform needs: account details, assignments, submissions, focus-session records you create, and AI conversations you start. We do not collect camera, microphone or screen-recording data — the platform has no such features.</p>
           <p><strong>2. Focus events.</strong> When the homework tab is hidden during a focus session, we record only the time it was hidden and for how long. We do not record what other tab or application you opened, and we do not treat hidden-tab time as proof of distraction.</p>
           <p><strong>3. Who sees what.</strong> Students see their own records. Teachers see their own classes and submissions. Parents see only children linked to them through a verified invitation. Administrators are institution-scoped. Submissions are private between student and teacher.</p>
-          <p><strong>4. AI data.</strong> Questions sent to an AI provider are limited to the question and relevant assignment context. Personal information and private files are not sent without an appropriate authorisation and disclosure workflow. No data leaves this computer.</p>
+          <p><strong>4. AI data.</strong> Tutor questions are processed using the reference books built into FocusEd AI.</p>
           <p><strong>5. Children.</strong> The platform may be used by minors through their institution. Guardians and institutions control linking and access. Focus data is private by default and is never used for public rankings.</p>
           <p><strong>6. Retention and deletion.</strong> You can request account and data deletion from Settings. Sample data can be reset at any time from the Settings page.</p>
-          <p><strong>7. Stored on this computer.</strong> All data lives in this browser (localStorage) on this computer only. Nothing is sent to a server.</p>
+          <p><strong>7. Stored on this computer.</strong> {DEMO_MODE ? 'Demo records stay in this browser profile.' : 'Workspace records are stored on the host laptop. Your browser sends requests to that laptop.'}</p>
         </div>
       </div>
     </PublicLayout>
@@ -323,12 +324,14 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const login = useStore((s) => s.login)
+  const [signingIn, setSigningIn] = useState(false)
   const focusLockNotice = useStore((s) => s.focusLockNotice)
   const navigate = useNavigate()
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const r = login(email, password)
+    setSigningIn(true)
+    const r = await runAction('login', email, password)
+    setSigningIn(false)
     if (!r.ok) { setError(r.error ?? 'Login failed.'); return }
     const user = useStore.getState().users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
     toast(`Welcome back, ${user?.name ?? ''}!`)
@@ -348,10 +351,10 @@ export function Login() {
             <Input id="login-password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
           </div>
           {(error || focusLockNotice) && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">{error || "Student login locked after five focus losses. Ask your linked parent to unlock it under My Children."}</p>}
-          <Button type="submit" className="w-full" size="lg">Log in</Button>
+          <Button type="submit" className="w-full" size="lg" disabled={signingIn}>{signingIn ? 'Signing in…' : 'Log in'}</Button>
         </form>
         <p className="mt-4 text-center text-sm"><Link className="text-royal-500 hover:underline" to="/forgot-password">Forgot your password?</Link> · <Link className="text-royal-500 hover:underline" to="/register">Create an account</Link></p>
-        <DemoAccountPicker onPick={(em) => { setEmail(em); setPassword(DEMO_PASSWORD) }} />
+        {DEMO_MODE && <DemoAccountPicker onPick={(em) => { setEmail(em); setPassword(DEMO_PASSWORD) }} />}
       </div>
     </PublicLayout>
   )
@@ -373,6 +376,11 @@ export function Register() {
     toast('Account created — welcome to FocusEd AI!')
     navigate('/student/dashboard')
   }
+  if (!DEMO_MODE) return <PublicLayout><div className="mx-auto max-w-md px-4 py-14">
+    <h1 className="font-display text-3xl font-extrabold">Get an account</h1>
+    <p className="my-4">Ask your college administrator to create an account for this laptop workspace.</p>
+    <LinkButton to="/login">Return to login</LinkButton>
+  </div></PublicLayout>
   return (
     <PublicLayout>
       <div className="mx-auto max-w-md px-4 py-14">
@@ -399,8 +407,8 @@ export function ForgotPassword() {
       <div className="mx-auto max-w-md px-4 py-14">
         <h1 className="font-display text-3xl font-extrabold">Password help</h1>
         <Card className="mt-6 space-y-4 p-6">
-          <p>This demo stores accounts in your browser and cannot email a reset link.</p>
-          <p>For a sample account, choose your role on the login page. The sample password is <code>{DEMO_PASSWORD}</code>.</p>
+          <p>{DEMO_MODE ? 'The demo stores accounts in your browser.' : 'Contact the administrator of this laptop workspace for account help.'}</p>
+          {DEMO_MODE && <p>For a sample account, choose your role on the login page. The sample password is <code>{DEMO_PASSWORD}</code>.</p>}
           <Link to="/login" className="block text-royal-500 underline">Back to login</Link>
           <Link to="/register" className="block text-royal-500 underline">Create a new student account</Link>
         </Card>

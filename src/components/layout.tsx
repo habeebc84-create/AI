@@ -5,7 +5,7 @@ import {
   Users, Megaphone, Shield, FileText, LogOut, Menu, X, Search, Moon, Sun, GraduationCap,
   ClipboardList, ClipboardCheck, Home, Sparkles, ChevronRight, Lock,
 } from 'lucide-react'
-import { focusDeadline, useStore, useCurrentUser, useStorageWriteFailure } from '../lib/store'
+import { focusDeadline, useStore, useCurrentUser, useStorageWriteFailure, DEMO_MODE } from '../lib/store'
 import { Modal, Toaster, toast } from './ui'
 import type { Role } from '../lib/types'
 
@@ -236,7 +236,7 @@ export function AppShell() {
           <div className="shrink-0 border-t border-slate-200 p-4 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-royal-500 text-sm font-bold text-white">{user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>
-              <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs capitalize text-slate-500">{user.role} · Demo</p></div>
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{user.name}</p><p className="truncate text-xs capitalize text-slate-500">{user.role} · {DEMO_MODE ? 'Demo' : 'Laptop workspace'}</p></div>
               <button onClick={() => { logout(); navigate('/login') }} aria-label="Log out" title="Log out" className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-navy-800"><LogOut className="h-4 w-4" /></button>
             </div>
           </div>

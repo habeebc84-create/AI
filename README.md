@@ -13,10 +13,10 @@ The capacity regression creates a class of 100 student accounts, publishes
 three assignments, accepts 100 text submissions, and checks that coursework
 and alerts persist after reload. This verifies the browser-local demo workflow.
 
-A shared deployment for 100 people on separate devices still needs frontend
-integration with hosted authentication, a database and file storage, followed
-by role-isolation and concurrent end-to-end tests. The repository includes
-Supabase schema and function prototypes for that work.
+The shared laptop mode stores records in SQLite on the host and signs students,
+teachers and parents in independently from their devices. The server test
+covers 100 independent student sessions, concurrent submissions and a restart.
+See [Run FocusEd AI on a laptop](docs/LAPTOP_SERVER.md) for setup.
 
 ## Quick start (local-only storage — no setup)
 

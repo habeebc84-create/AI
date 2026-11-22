@@ -1,3 +1,4 @@
+import { runAction } from '../lib/laptop'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Notifications } from '../components/notifications'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -7,7 +8,7 @@ import {
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
 import { PdfPreview } from '../components/pdf-preview'
-import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
+import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz, type TutorLevel } from '../lib/ai'
@@ -188,7 +189,7 @@ export function StudentAssignmentDetail() {
 
 function AssignmentDetailForm({ id }: { id?: string }) {
   const user = useCurrentUser()!
-  const { assignments, submissions, saveDraft, submitAssignment, studyPlans, saveStudyPlan } = useStore()
+  const { assignments, submissions, studyPlans, saveStudyPlan } = useStore()
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [files, setFiles] = useState<StoredFile[]>([])
@@ -211,6 +212,10 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   const onFiles = async (fl: FileList | null) => {
     if (!fl) return
     setError('')
+    if (!DEMO_MODE && (files.length + fl.length > 3 || Array.from(fl).some((file) => file.size > MAX_STORED_FILE_BYTES))) {
+      setError('Attach up to three supported files, each up to 2 MB.')
+      return
+    }
     for (const f of Array.from(fl)) {
       const err = validateUploadFile(f)
       if (err) { setError(err); return }
@@ -231,8 +236,8 @@ function AssignmentDetailForm({ id }: { id?: string }) {
       }
     }
   }
-  const submit = () => {
-    const r = submitAssignment(a.id, user.id, text, files)
+  const submit = async () => {
+    const r = await runAction('submitAssignment', a.id, user.id, text, files)
     if (!r.ok) { setError(r.error ?? 'Could not submit.'); return }
     toast(r.late ? (a.latePolicy === 'accept-penalty' ? 'Submitted late — penalty policy applies.' : 'Assignment submitted late.') : 'Assignment submitted successfully!')
     navigate('/student/submissions')
@@ -286,14 +291,14 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           <h2 className="font-display font-bold">Your submission</h2>
           <p className="text-sm text-slate-500">Status: {existing?.status ?? 'not started'}{existing?.submittedAt ? ` · submitted ${fmtDateTime(existing.submittedAt)}` : ''}</p>
           <div className="mt-4"><Label htmlFor="submission-response">Text response</Label><Textarea id="submission-response" rows={8} disabled={locked} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
-          <div className="mt-4"><Label>Attach files (PDF, DOCX, images, text — max 10 MB each; contents stored on this computer up to 2 MB per file)</Label><Input type="file" disabled={locked} multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
-          {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({f.dataUrl ? 'stored on this computer' : 'listed only'})</span></span><button disabled={locked} onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
+          <div className="mt-4"><Label>{DEMO_MODE ? 'Attach files (PDF, DOCX, images, text — up to 2 MB of content per file)' : 'Attach up to three supported files, 2 MB each'}</Label><Input type="file" disabled={locked} multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
+          {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({(f.dataUrl || f.downloadUrl) ? 'stored' : 'listed only'})</span></span><button disabled={locked} onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
           {fileNote && <p className="mt-2 text-xs text-slate-500">{fileNote}</p>}
           {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30" role="alert">{error}</p>}
           {saved && <p className="mt-3 text-sm text-emerald-600">Draft saved.</p>}
           <div className="mt-4 flex gap-2">
-            <Button variant="outline" disabled={locked} onClick={() => {
-              const result = saveDraft(a.id, user.id, text, files)
+            <Button variant="outline" disabled={locked} onClick={async () => {
+              const result = await runAction('saveDraft', a.id, user.id, text, files)
               setSaved(result.ok)
               setError(result.error ?? '')
               if (result.ok) toast('Draft saved.')
@@ -334,7 +339,7 @@ export function StudentSubmissions() {
 }
 
 function FocusAssessmentWorkspace({ user }: { user: User }) {
-  const { assignments, submissions, saveDraft, activeFocus } = useStore()
+  const { assignments, submissions, activeFocus } = useStore()
   const [selectedId, setSelectedId] = useState('')
   const published = assignments.filter((a) => a.status === 'published' && a.classId === user.classId)
   const effectiveId = selectedId || activeFocus?.assignmentId || ''
@@ -398,14 +403,14 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
       </div>
       <Card className="mt-4 p-5">
         <h2 className="font-display text-lg font-bold">Your answer</h2>
-        <p className="text-sm text-slate-500">Type here while the reference is open. Drafts stay on this computer.</p>
+        <p className="text-sm text-slate-500">{DEMO_MODE ? 'Type here while the reference is open. Drafts stay in this browser.' : 'Type here while the reference is open. Drafts are saved on the host laptop.'}</p>
         <div className="mt-3 max-w-3xl">
           <Label htmlFor="focus-answer">{selected ? `Answer for ${selected.title}` : 'Answer'}</Label>
           <Textarea id="focus-answer" rows={6} value={answer} disabled={!selected || Boolean(existing?.submittedAt && !existing.returnedForRevision)} onChange={(e) => setAnswer(e.target.value)}
             placeholder={selected ? 'Write your answer, using the reference book above…' : 'Select an assessment first.'} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button disabled={!selected || Boolean(existing?.submittedAt && !existing.returnedForRevision)} onClick={() => { if (!selected) return; const result = saveDraft(selected.id, user.id, answer, existing?.files ?? [])
+          <Button disabled={!selected || Boolean(existing?.submittedAt && !existing.returnedForRevision)} onClick={async () => { if (!selected) return; const result = await runAction('saveDraft', selected.id, user.id, answer, existing?.files ?? [])
             if (!result.ok) { toast(result.error ?? 'Could not save draft.', 'error'); return }
             toast('Draft saved — it appears under Submissions.') }}>Save draft</Button>
           {existing?.submittedAt && !existing.returnedForRevision && <span className="text-xs text-slate-500">Submitted work can be edited after your teacher returns it for revision.</span>}
@@ -433,7 +438,7 @@ function FocusDial({ planned }: { planned: number }) {
 
 export function FocusPage() {
   const user = useCurrentUser()!
-  const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents, focusLosses, guardianLinks, inviteGuardian } = useStore()
+  const { assignments, startFocus, pauseFocus, resumeFocus, finishFocus, focusPrefs, focusEvents, focusLosses, guardianLinks } = useStore()
   const [params] = useSearchParams()
   const [parentEmail, setParentEmail] = useState('')
   const parentLinked = guardianLinks.some((link) => link.studentId === user.id && link.status === 'accepted')
@@ -465,10 +470,10 @@ export function FocusPage() {
       <p className="mb-4 text-sm font-semibold">Focus losses since last unlock: {losses}/{FOCUS_LOSS_LIMIT}</p>
       {!parentLinked && !af && <Card className="mb-4 p-5">
         <h2 className="font-display font-bold">Link a parent to start Focus Mode</h2>
-        <p className="mt-1 text-sm">{pendingLink ? 'Ask your parent to accept the request in My Children.' : 'Send a link request to your parent’s account on this browser.'}</p>
-        <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => {
+        <p className="mt-1 text-sm">{pendingLink ? 'Ask your parent to accept the request in My Children.' : 'Send a link request to your parent’s account.'}</p>
+        <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={async (event) => {
           event.preventDefault()
-          const result = inviteGuardian(parentEmail, user.id)
+          const result = await runAction('inviteGuardian', parentEmail, user.id)
           toast(result.ok ? 'Guardian link requested.' : result.error ?? 'Could not request a guardian link.', result.ok ? 'success' : 'error')
           if (result.ok) setParentEmail('')
         }}>
@@ -549,7 +554,7 @@ export function FocusHistory() {
 
 export function AiTutor() {
   const user = useCurrentUser()!
-  const { assignments, conversations, sendTutorMessage } = useStore()
+  const { assignments, conversations } = useStore()
   const [params] = useSearchParams()
   const [convId, setConvId] = useState<string | null>(null)
   const [assignmentId, setAssignmentId] = useState(params.get('assignment') ?? '')
@@ -559,9 +564,10 @@ export function AiTutor() {
   const conv = conversations.find((c) => c.id === convId) ?? conversations.filter((c) => c.studentId === user.id)[0]
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }) }, [conv?.messages.length])
-  const ask = (q: string, level: TutorLevel = 'hint') => {
+  const ask = async (q: string, level: TutorLevel = 'hint') => {
     if (!q.trim()) return
-    const id = sendTutorMessage(convId, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q, level)
+    const id = await runAction('sendTutorMessage', convId, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q, level)
+    if (!id) return
     setConvId(id); setLastQuestion(q); setQuestion('')
   }
   const submit = (e: FormEvent) => { e.preventDefault(); ask(question) }
@@ -780,7 +786,7 @@ export function StudentProfile() {
   const save = (e: FormEvent) => { e.preventDefault(); updateProfile(user.id, { name, subjects: subjects.split(',').map((s) => s.trim()).filter(Boolean) }); toast('Profile updated.') }
   return (
     <div>
-      <PageHeader title="My Profile" sub="Your details, stored only on this computer." />
+      <PageHeader title="My Profile" sub="Update your name and subjects." />
       <Card className="max-w-lg p-6">
         <div className="flex items-center gap-4"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-royal-500 text-xl font-bold text-white">{user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span><div><p className="font-display text-lg font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email} · {user.role}</p><p className="text-sm text-slate-500">{user.school} · {user.grade}</p></div></div>
         <form onSubmit={save} className="mt-6 space-y-4">
@@ -813,13 +819,15 @@ export function StudentSettings() {
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Focus sessions record start/end times, pauses and tab-visibility events only. No camera, microphone or screen recording exists in this app. Your focus history is private by default and is not shared with teachers.</p>
         </Card>
         <Card className="p-6">
+          {DEMO_MODE && <>
           <h2 className="font-display font-bold">Demo data</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">All data is stored only on this computer. Resetting restores the original sample data and signs you out.</p>
           {!confirmReset ? <Button className="mt-4" variant="outline" onClick={() => setConfirmReset(true)}>Reset demo data</Button> : (
             <div className="mt-4 flex gap-2"><Button variant="danger" onClick={() => { resetDemo(); navigate('/login'); toast('Demo data reset.') }}>Yes, reset everything</Button><Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button></div>
           )}
+          </>}
           <h3 className="mt-6 font-display font-bold">Account</h3>
-          <p className="mt-1 text-sm text-slate-500">Signed in as {user.email}. Account deletion removes your record from this computer only.</p>
+          <p className="mt-1 text-sm text-slate-500">Signed in as {user.email}.</p>
         </Card>
       </div>
     </div>
