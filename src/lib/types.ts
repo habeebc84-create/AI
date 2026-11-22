@@ -34,6 +34,7 @@ export interface Assignment {
   title: string
   description: string
   instructions: string
+  referenceNotes?: string
   subject: string
   classId: string
   teacherId: string

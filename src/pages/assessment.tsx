@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Award, BookOpen, ClipboardCheck, Download, FileText, TrendingUp, Users } from 'lucide-react'
+import { Award, BookOpen, ClipboardCheck, FileText, TrendingUp, Users } from 'lucide-react'
 import { useStore, useCurrentUser } from '../lib/store'
 import { Badge, Card, EmptyState, PageHeader, statusBadge } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
+import { PdfPreview } from '../components/pdf-preview'
 import { REFERENCE_BOOKS } from '../lib/reference'
 import type { Assignment, Submission, User } from '../lib/types'
 
@@ -54,22 +55,19 @@ function ReferencePdfs() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-display text-lg font-bold">Reference PDFs</h2>
-          <p className="text-sm text-slate-500">Open revision sheets for every assessment subject. The files are stored with the app and download offline.</p>
+          <p className="text-sm text-slate-500">Read revision sheets for every assessment subject here.</p>
         </div>
         <ClipboardCheck className="h-6 w-6 text-royal-500" aria-hidden="true" />
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {REFERENCE_BOOKS.map((book) => (
-          <div key={book.file} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+          <div key={book.file} className="min-w-0 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <div className="min-w-0">
               <p className="font-semibold">{book.title}</p>
               <p className="text-xs text-slate-500">{book.subject} · PDF</p>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{book.summary}</p>
             </div>
-            <a href={book.file} download aria-label={`Download ${book.title} PDF`}
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-navy-800">
-              <Download className="h-4 w-4" /> PDF
-            </a>
+            <PdfPreview title={book.title} file={book.file} />
           </div>
         ))}
       </div>
