@@ -5,7 +5,7 @@ import {
   Sparkles, CalendarDays, Bell, Search, Play, Pause, MessageSquare,
 } from 'lucide-react'
 import { PublicLayout } from '../components/layout'
-import { Button, Card, Input, Label, Textarea, Badge, ProgressRing, toast } from '../components/ui'
+import { Button, LinkButton, Card, Input, Label, Textarea, Badge, ProgressRing, toast } from '../components/ui'
 import { useStore, demoAccounts, DEMO_PASSWORD } from '../lib/store'
 
 /** Clearly labelled product preview — sample data, not a real student's record. */
@@ -82,8 +82,8 @@ export function Landing() {
               An intelligent learning workspace that combines AI-powered homework guidance, focused study sessions, and organised assignment management.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/register"><Button size="lg">Get Started Free <ArrowRight className="h-4 w-4" /></Button></Link>
-              <Link to="/features"><Button size="lg" variant="outline">Explore Features</Button></Link>
+              <LinkButton to="/register" size="lg">Get Started Free <ArrowRight className="h-4 w-4" /></LinkButton>
+              <LinkButton to="/features" size="lg" variant="outline">Explore Features</LinkButton>
             </div>
             <p className="mt-4 text-sm text-slate-500">Free for the capstone demo · No card required · Sample accounts on the login page</p>
           </div>
@@ -152,8 +152,8 @@ export function Landing() {
           <h2 className="font-display text-3xl font-extrabold">Learn Smarter. Stay Focused. Achieve More.</h2>
           <p className="mt-3 text-slate-300">Start with a sample account — student, teacher, parent or admin — and try all ten capstone workflows.</p>
           <div className="mt-6 flex justify-center gap-3">
-            <Link to="/register"><Button size="lg">Get Started Free</Button></Link>
-            <Link to="/how-it-works"><Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-navy-800">See how it works</Button></Link>
+            <LinkButton to="/register" size="lg">Get Started Free</LinkButton>
+            <LinkButton to="/how-it-works" size="lg" variant="outline" className="border-slate-600 text-white hover:bg-navy-800">See how it works</LinkButton>
           </div>
         </div>
       </section>
@@ -204,7 +204,7 @@ export function HowItWorks() {
             <Card key={t} className="p-6"><h3 className="font-display text-lg font-bold">{t}</h3><p className="mt-1 text-slate-600 dark:text-slate-300">{d}</p></Card>
           ))}
         </div>
-        <div className="mt-8"><Link to="/register"><Button size="lg">Try it now <ArrowRight className="h-4 w-4" /></Button></Link></div>
+        <div className="mt-8"><LinkButton to="/register" size="lg">Try it now <ArrowRight className="h-4 w-4" /></LinkButton></div>
       </div>
     </PublicLayout>
   )
@@ -321,6 +321,7 @@ function DemoAccountPicker({ onPick }: { onPick: (email: string) => void }) {
 export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const login = useStore((s) => s.login)
   const focusLockNotice = useStore((s) => s.focusLockNotice)
@@ -340,7 +341,12 @@ export function Login() {
         <p className="mt-1 text-slate-500">Log in to your FocusEd AI workspace.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div><Label htmlFor="login-email">Email</Label><Input id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
-          <div><Label htmlFor="login-password">Password</Label><Input id="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" /></div>
+          <div>
+            <div className="mb-1 flex items-baseline justify-between"><Label htmlFor="login-password">Password</Label>
+              <button type="button" aria-controls="login-password" className="text-sm font-semibold text-indigo-700 dark:text-indigo-300" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Hide password' : 'Show password'}</button>
+            </div>
+            <Input id="login-password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
+          </div>
           {(error || focusLockNotice) && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert">{error || "Student login locked after five focus losses. Ask your linked parent to unlock it under My Children."}</p>}
           <Button type="submit" className="w-full" size="lg">Log in</Button>
         </form>
@@ -409,7 +415,7 @@ export function NotFound() {
       <div className="mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="font-display text-5xl font-extrabold">404</h1>
         <p className="mt-2 text-slate-500">That page does not exist.</p>
-        <Link to="/" className="mt-6 inline-block"><Button>Back to home</Button></Link>
+        <LinkButton to="/" className="mt-6 inline-block">Back to home</LinkButton>
       </div>
     </PublicLayout>
   )

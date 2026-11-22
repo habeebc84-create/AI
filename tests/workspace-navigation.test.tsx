@@ -43,3 +43,14 @@ describe('workspace navigation', () => {
     expect(screen.getByText('Assignment not found')).toBeTruthy()
   })
 })
+
+it('opens a role-specific workspace page from search with Enter', () => {
+  useStore.getState().login('priya@demo.focused.ai', DEMO_PASSWORD)
+  render(<MemoryRouter><SearchOverlay open onClose={() => {}} /><Location /></MemoryRouter>)
+  const input = screen.getByRole('textbox', { name: 'Search' })
+  expect(document.activeElement).toBe(input)
+  fireEvent.change(input, { target: { value: 'announcements' } })
+  expect(screen.getByRole('button', { name: /announcements/i })).toBeTruthy()
+  fireEvent.submit(input.closest('form')!)
+  expect(screen.getByText('/teacher/announcements')).toBeTruthy()
+})
