@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { act, render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../src/App'
+import { useStore } from '../src/lib/store'
 import { Landing } from '../src/pages/public'
 
 describe('app smoke test', () => {
@@ -32,4 +33,17 @@ describe('app smoke test', () => {
     render(<App />)
     expect(screen.getByText(/Your Homework\./)).toBeTruthy()
   })
+})
+
+it('shows a warning when a coursework store write is rejected by the browser', () => {
+  const denied = () => { throw new DOMException('Full', 'QuotaExceededError') }
+  const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(denied)
+  try {
+    render(<MemoryRouter><Landing /></MemoryRouter>)
+    act(() => useStore.setState({ focusLockNotice: false }))
+    expect(screen.getByRole('alert').textContent).toMatch(/could not save your recent changes/)
+  } finally {
+    write.mockRestore()
+    act(() => useStore.setState({ focusLockNotice: false }))
+  }
 })

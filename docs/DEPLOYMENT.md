@@ -1,8 +1,7 @@
 # FocusEd AI — Deployment
 
-**Status: not deployed.** No live Supabase project, hosting, or domain is
-connected yet. The steps below are the deployment path, not a record of a
-deployment that happened.
+The browser-local demo is live on [Vercel](https://focused-ai.vercel.app/login).
+The Supabase backend sections describe a proposed shared deployment.
 
 ## Frontend on GitHub Pages
 
@@ -22,9 +21,7 @@ npm run build        # must pass before deploying
 ```
 
 - Create a Vercel project from this repo (or `vercel` CLI).
-- Set env vars in the Vercel dashboard: `VITE_SUPABASE_URL`,
-  `VITE_SUPABASE_ANON_KEY`. (No service-role key, no AI keys — those are
-  server-side only.)
+- The browser-local demo requires no environment values.
 - Every push to `main` auto-deploys. Preview deployments are created for
   pull requests.
 

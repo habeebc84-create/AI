@@ -252,11 +252,12 @@ function AssignmentDetailForm({ id }: { id?: string }) {
       { assignmentId: a.id, title: `Read the brief — ${a.title}`, dueAt: a.dueAt, estMinutes: 15 },
       { assignmentId: a.id, title: `Draft — ${a.title}`, dueAt: a.dueAt, estMinutes: a.maxMarks >= 20 ? 50 : 35 },
       { assignmentId: a.id, title: `Check against the rubric — ${a.title}`, dueAt: a.dueAt, estMinutes: 20 },
-    ], days, 16 * 60, 20 * 60, 10)
+    ], days, 16 * 60, 20 * 60, 10, new Date())
+    if (!blocks.length) { toast('No study time fits before this deadline.', 'info'); return }
     const plan = studyPlans.find((p) => p.studentId === user.id)
     const kept = (plan?.items ?? []).filter((i) => i.assignmentId !== a.id)
     saveStudyPlan([...kept, ...blocks.map((b) => ({ id: uid('pi'), assignmentId: b.assignmentId, title: b.title, date: b.date, startMin: b.startMin, durationMin: b.durationMin, done: false }))])
-    toast(`Added ${blocks.length} study tasks to your planner, working back from the deadline.`)
+    toast(`Added ${blocks.length} study tasks to your planner, before the deadline.`)
   }
   return (
     <div>
@@ -270,7 +271,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           {a.rubric && <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm dark:bg-navy-800"><p className="font-semibold">Rubric</p><p className="mt-1 text-slate-600 dark:text-slate-300">{a.rubric}</p></div>}
           <div className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <p className="font-display font-bold">Plan this work</p>
-            <p className="mt-1 text-sm text-slate-500">Break it into three scheduled tasks in your study planner, working back from the deadline.</p>
+            <p className="mt-1 text-sm text-slate-500">Break it into three scheduled tasks in your study planner, before the deadline.</p>
             <Button className="mt-3" variant="outline" onClick={breakIntoTasks}><CalendarDays className="h-4 w-4" /> Break into study tasks</Button>
           </div>
           {a.referenceNotes && <section className="mt-6"><h3 className="font-display font-bold">Teacher reference notes</h3><p className="mt-2 whitespace-pre-wrap break-words">{a.referenceNotes}</p></section>}
@@ -633,7 +634,8 @@ export function StudyPlanner() {
     )
     const tasks = assignments.filter((a) => a.status === 'published' && a.classId === user.classId && !submissions.some((s) => s.assignmentId === a.id && s.studentId === user.id && s.submittedAt && !s.returnedForRevision))
       .map((a) => ({ assignmentId: a.id, title: a.title, dueAt: a.dueAt, estMinutes: 60 }))
-    const blocks = buildStudyPlan(tasks, days, startHour * 60, endHour * 60, 10)
+    const blocks = buildStudyPlan(tasks, days, startHour * 60, endHour * 60, 10, today)
+    if (!blocks.length) { toast('No study blocks fit before your pending deadlines.', 'info'); return }
     saveStudyPlan(blocks.map((b) => ({ id: uid('pi'), assignmentId: b.assignmentId, title: b.title, date: b.date, startMin: b.startMin, durationMin: b.durationMin, done: false })))
     toast(`Study plan generated: ${blocks.length} blocks across the next 7 days.`)
   }

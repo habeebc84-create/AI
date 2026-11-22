@@ -29,7 +29,7 @@ export function AdminDashboard() {
           <h2 className="font-display font-bold">System status</h2>
           <ul className="mt-3 space-y-2 text-sm">
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Local storage running — all data stays on this computer</li>
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> File storage: up to 2 MB per file, 4 MB total, on this computer</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> File storage: up to 2 MB per file, 3 MB total, on this computer</li>
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {submissions.filter((s) => s.submittedAt).length} submissions stored · {focusSessions.length} focus sessions stored</li>
           </ul>
           <Link to="/admin/ai-settings" className="mt-4 inline-block text-sm font-semibold text-royal-500 hover:underline">Configure AI provider →</Link>
@@ -268,7 +268,7 @@ export function AdminSystemSettings() {
           <div><Label htmlFor="institution-name">Institution name</Label><Input id="institution-name" value={name} onChange={(e) => setName(e.target.value)} required /></div>
           <Button type="submit">Save settings</Button>
         </form>
-        <p className="mt-4 text-sm text-slate-500">Stored in this browser. Attachments store up to 2 MB per file and 4 MB total.</p>
+        <p className="mt-4 text-sm text-slate-500">Stored in this browser. Attachments store up to 2 MB per file and 3 MB total.</p>
       </Card>
     </div>
   )

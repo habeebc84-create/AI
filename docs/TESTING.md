@@ -4,13 +4,12 @@
 
 | Suite | Location | Status |
 |---|---|---|
-| Frontend unit tests | `npm test` (Vitest, frontend-owned) | Run by the frontend agent; not verified here |
+| Frontend unit tests | `npm test` (Vitest, frontend-owned) | Runs on pull requests and main |
 | RLS negative tests | `tests/security/rls-negative-tests.sql` | Written, **not yet run** — no live Supabase project is connected |
 | Edge Function checks | manual, below | Not yet run against a deployed function |
 | Seed-data checks | SQL, below | Not yet run |
 
-Nothing in this repo has a green test run to point at yet. This doc says
-what to run once a Supabase project exists.
+The frontend suite includes a 100-student browser-local capacity regression. The SQL and function checks below apply to the backend prototype once a Supabase project is available.
 
 ## 1. Frontend tests
 

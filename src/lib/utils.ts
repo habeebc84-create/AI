@@ -8,6 +8,11 @@ export const timeAgo = (iso: string) => formatDistanceToNow(new Date(iso), { add
 export const isOverdue = (iso: string) => isPast(new Date(iso))
 export const minsUntil = (iso: string) => differenceInMinutes(new Date(iso), new Date())
 
+export function csvCell(value: string): string {
+  const safeValue = /^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(value) ? "'" + value : value
+  return '"' + safeValue.replace(/"/g, '""') + '"'
+}
+
 export function completionRate(completed: number, total: number): number {
   if (total <= 0) return 0
   return Math.round((completed / total) * 100)
@@ -56,7 +61,7 @@ export const MAX_FILE_MB = 10
 // localStorage quota (~5 MB). Files over the cap are still listed, but
 // their contents are not stored — the UI says so plainly.
 export const MAX_STORED_FILE_BYTES = 2 * 1024 * 1024
-export const LOCAL_FILE_BUDGET_BYTES = 4 * 1024 * 1024
+export const LOCAL_FILE_BUDGET_BYTES = 3 * 1024 * 1024
 
 export interface StoredFile {
   name: string
@@ -136,24 +141,36 @@ export function buildStudyPlan(
   dailyStartMin: number,
   dailyEndMin: number,
   breakMin: number,
+  now?: Date,
 ): PlanBlock[] {
-  const sorted = [...tasks].sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+  const sorted = tasks.filter((task) => Number.isFinite(Date.parse(task.dueAt)) && Number.isFinite(task.estMinutes))
+    .sort((first, second) => Date.parse(first.dueAt) - Date.parse(second.dueAt))
   const blocks: PlanBlock[] = []
+  const today = now ? localDateKey(now) : ''
+  const currentMinute = now ? now.getHours() * 60 + now.getMinutes() + (now.getSeconds() || now.getMilliseconds() ? 1 : 0) : 0
   let dayIdx = 0
   let cursor = dailyStartMin
-  for (const t of sorted) {
-    let remaining = t.estMinutes
+  for (const task of sorted) {
+    const deadline = new Date(task.dueAt)
+    const dueDay = localDateKey(deadline)
+    const dueMinute = deadline.getHours() * 60 + deadline.getMinutes()
+    let remaining = task.estMinutes
     while (remaining > 0 && dayIdx < days.length) {
-      const room = dailyEndMin - cursor
-      if (room < 15) {
+      const day = days[dayIdx]
+      if (day > dueDay) break
+      const start = Math.max(cursor, day === today ? currentMinute : dailyStartMin)
+      const end = day === dueDay ? Math.min(dailyEndMin, dueMinute) : dailyEndMin
+      const room = end - start
+      if (day < today || room < Math.min(15, remaining)) {
+        if (day === dueDay) break
         dayIdx++
         cursor = dailyStartMin
         continue
       }
-      const chunk = Math.min(remaining, room, 50) // max 50-min focused blocks
-      blocks.push({ assignmentId: t.assignmentId, title: t.title, date: days[dayIdx], startMin: cursor, durationMin: chunk })
-      remaining -= chunk
-      cursor += chunk + breakMin
+      const duration = Math.min(remaining, room, 50)
+      blocks.push({ assignmentId: task.assignmentId, title: task.title, date: day, startMin: start, durationMin: duration })
+      remaining -= duration
+      cursor = start + duration + Math.max(0, breakMin)
     }
   }
   return blocks
