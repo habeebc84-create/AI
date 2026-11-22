@@ -6,7 +6,7 @@ import {
   ClipboardList, ClipboardCheck, Home, Sparkles, ChevronRight, Lock,
 } from 'lucide-react'
 import { focusDeadline, useStore, useCurrentUser } from '../lib/store'
-import { Toaster, toast } from './ui'
+import { Modal, Toaster, toast } from './ui'
 import type { Role } from '../lib/types'
 
 // Tab-visibility tracking runs app-wide during an active focus session:
@@ -126,32 +126,35 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
       .map((c) => ({ key: `class-${c.id}`, label: c.name, sub: `Class · ${c.grade}`, to: `/${user.role}/classes` }))
     return [...assignmentResults, ...classResults]
   }, [q, user, assignments, classes, users, guardianLinks])
+  const matches = q.trim().toLowerCase()
+  const pageResults = user ? NAV[user.role].filter((item) => !matches || item.label.toLowerCase().includes(matches)).slice(0, 6)
+    .map((item) => ({ key: item.to, label: item.label, sub: 'Workspace page', to: item.to })) : []
+  const options = [...(matches ? results : []), ...pageResults]
+  const choose = (path: string) => { onClose(); navigate(path) }
   const searchable = user?.role === 'teacher' || user?.role === 'admin' ? 'assignments and classes' : 'assignments'
   useEffect(() => {
     if (open) setQ('')
-  }, [open ])
-  if (!open) return null
+  }, [open])
   return (
-    <div className="fixed inset-0 z-[95] bg-black/50 p-4" onClick={onClose} role="dialog" aria-label="Search">
-      <div className="mx-auto mt-20 max-w-lg rounded-2xl bg-white p-4 shadow-2xl dark:bg-navy-900" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
-          <Search className="h-5 w-5 text-slate-400" />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${searchable}… (Esc to close)`}
-            className="w-full bg-transparent text-sm outline-none dark:text-white" aria-label="Search" />
-          <button onClick={onClose} aria-label="Close search"><X className="h-5 w-5 text-slate-400" /></button>
+    <Modal open={open} onClose={onClose} title="Workspace search">
+      <form onSubmit={(event) => { event.preventDefault(); if (options[0]) choose(options[0].to) }}>
+        <div className="flex items-center gap-2 rounded-xl border border-slate-300 px-3 dark:border-slate-600">
+          <Search className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
+          <input data-dialog-autofocus value={q} onChange={(event) => setQ(event.target.value)} placeholder={`Search pages, ${searchable}…`}
+            className="min-w-0 flex-1 bg-transparent py-3 text-sm" aria-label="Search" />
         </div>
-        <div className="max-h-80 overflow-auto py-2">
-          {results.length === 0 && <p className="px-2 py-4 text-sm text-slate-500">{q.trim() ? 'No matches found.' : `Type to search your ${searchable}.`}</p>}
-          {results.map((r) => (
-            <button key={r.key} className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-navy-800"
-              onClick={() => { onClose(); navigate(r.to) }}>
-              <span><span className="block text-sm font-semibold text-slate-900 dark:text-white">{r.label}</span><span className="text-xs text-slate-500">{r.sub}</span></span>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+        <div className="mt-2 max-h-[45dvh] overflow-auto" aria-label="Search results">
+          {options.length === 0 && <p role="status" className="px-2 py-4 text-sm text-slate-500">No matches found.</p>}
+          {options.map((item) => (
+            <button key={item.key} type="button" className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-navy-800"
+              onClick={() => choose(item.to)}>
+              <span className="min-w-0 wrap-anywhere"><span className="block text-sm font-semibold">{item.label}</span><span className="text-xs text-slate-500">{item.sub}</span></span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
             </button>
           ))}
         </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -251,7 +254,7 @@ export function AppShell() {
               <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Focus session running — finish it to open other pages. The timer keeps counting.
             </p>
           )}
-          <main className="mx-auto max-w-6xl p-4 sm:p-6"><Suspense fallback={<p role="status" className="p-4 text-sm">Loading workspace…</p>}><Outlet /></Suspense></main>
+          <main className="mx-auto max-w-6xl p-4 sm:p-6"><Suspense fallback={<p role="status" className="p-4 text-sm">Loading workspace…</p>}><div key={pathname} className="workspace-enter"><Outlet /></div></Suspense></main>
         </div>
       </div>
 
@@ -273,10 +276,12 @@ export function AppShell() {
 
 export function PublicLayout({ children }: { children: ReactNode }) {
   const { dark, toggle } = useTheme()
+  const [expanded, setExpanded] = useState(false)
+  const { pathname } = useLocation()
   return (
     <div className="min-h-screen bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-navy-900">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
           <Logo />
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex" aria-label="Public navigation">
             <Link className="hover:text-royal-500" to="/features">Features</Link>
@@ -287,11 +292,18 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2">
             <button onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800">{dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
             <Link to="/login" className="rounded-xl px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-navy-800">Log in</Link>
-            <Link to="/register" className="rounded-xl bg-royal-500 px-4 py-2 text-sm font-semibold text-white hover:bg-royal-600">Get Started Free</Link>
+            <Link to="/register" className="hidden rounded-xl bg-royal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 sm:inline-flex">Get Started Free</Link>
+            <button type="button" className="rounded-lg p-2 md:hidden" aria-label={expanded ? 'Close public menu' : 'Open public menu'} aria-expanded={expanded} aria-controls="mobile-public-navigation" onClick={() => setExpanded(!expanded)}>{expanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
           </div>
         </div>
+        <nav id="mobile-public-navigation" hidden={!expanded} aria-label="Mobile public navigation" className="px-3 pb-3 md:hidden">
+          {[
+            ['/features', 'Features'], ['/how-it-works', 'How It Works'], ['/about', 'About'], ['/contact', 'Contact'], ['/register', 'Create account'],
+          ].map(([path, label]) => <NavLink key={path} to={path} onClick={() => setExpanded(false)}
+            className="block rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-navy-800">{label}</NavLink>)}
+        </nav>
       </header>
-      <main>{children}</main>
+      <main key={pathname} className="workspace-enter">{children}</main>
       <footer className="border-t border-slate-200 bg-white dark:border-slate-700 dark:bg-navy-900">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
           <div><Logo /><p className="mt-3 text-sm text-slate-500">Learn Smarter. Stay Focused. Achieve More.</p></div>

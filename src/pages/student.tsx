@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Notifications } from '../components/notifications'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   BookOpen, Timer, Bot, CalendarDays, BarChart3, Play, Pause, CheckCircle2,
@@ -7,7 +8,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
 import { PdfPreview } from '../components/pdf-preview'
 import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
-import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
+import { PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz, type TutorLevel } from '../lib/ai'
 import { REFERENCE_BOOKS } from '../lib/reference'
@@ -84,7 +85,7 @@ export function StudentDashboard() {
   const recommendedMin = nextUp ? Math.min(50, Math.max(25, Math.round((nextUp.maxMarks || 20) * 1.5))) : 25
   return (
     <div>
-      <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} sub="Your homework and study tasks." action={!activeFocus && <Link to="/student/focus"><Button><Play className="h-4 w-4" /> Start focus session</Button></Link>} />
+      <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} sub="Your homework and study tasks." action={!activeFocus && <LinkButton to="/student/focus"><Play className="h-4 w-4" /> Start focus session</LinkButton>} />
       <CurrentSession />
       {nextUp && !activeFocus && (
         <Card className="mb-4 border-royal-400/60 p-5">
@@ -95,8 +96,8 @@ export function StudentDashboard() {
               <p className="text-sm text-slate-500">{nextUp.subject} · due {fmtDateTime(nextUp.dueAt)} · {nextUp.maxMarks} marks{minsUntil(nextUp.dueAt) < 0 ? ' · overdue' : minsUntil(nextUp.dueAt) <= 48 * 60 ? ' · due soon' : ''}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to={`/student/focus?assignment=${nextUp.id}&minutes=${recommendedMin}`}><Button><Play className="h-4 w-4" /> Start {recommendedMin}-min focus</Button></Link>
-              <Link to={`/student/ai-tutor?assignment=${nextUp.id}`}><Button variant="outline"><Bot className="h-4 w-4" /> Ask AI Tutor</Button></Link>
+              <LinkButton to={`/student/focus?assignment=${nextUp.id}&minutes=${recommendedMin}`}><Play className="h-4 w-4" /> Start {recommendedMin}-min focus</LinkButton>
+              <LinkButton to={`/student/ai-tutor?assignment=${nextUp.id}`} variant="outline"><Bot className="h-4 w-4" /> Ask AI Tutor</LinkButton>
             </div>
           </div>
           <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Chosen from your earliest deadline. The tutor answers from the {nextUp.subject} reference book, and the focus timer records the session for you.</p>
@@ -170,7 +171,7 @@ export function StudentAssignments() {
                 <div className="flex items-start justify-between gap-2"><Badge color="indigo">{a.subject}</Badge>{statusBadge(statusOf(a))}</div>
                 <h3 className="mt-3 font-display text-lg font-bold"><Link to={`/student/assignments/${a.id}`} className="hover:text-royal-500">{a.title}</Link></h3>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{a.description}</p>
-                <div className="mt-auto flex items-center justify-between pt-4 text-sm"><span className="text-slate-500">Due {fmtDateTime(a.dueAt)} · {a.maxMarks} marks</span><Link to={`/student/assignments/${a.id}`}><Button size="sm">Open</Button></Link></div>
+                <div className="mt-auto flex items-center justify-between pt-4 text-sm"><span className="text-slate-500">Due {fmtDateTime(a.dueAt)} · {a.maxMarks} marks</span><LinkButton to={`/student/assignments/${a.id}`} size="sm">Open</LinkButton></div>
               </Card>
             </div>
           ))}
@@ -197,8 +198,8 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   const a = assignments.find((x) => x.id === id && x.classId === user.classId)
   const existing = submissions.find((s) => s.assignmentId === id && s.studentId === user.id)
   useEffect(() => { if (existing) { setText(existing.text); setFiles(existing.files) } }, [existing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!a) return <EmptyState title="Assignment not found" body="It may have been removed, or the link is wrong." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
-  if (a.status !== 'published') return <EmptyState title="Not published yet" body="Your teacher has not published this assignment." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
+  if (!a) return <EmptyState title="Assignment not found" body="It may have been removed, or the link is wrong." action={<LinkButton to="/student/assignments">Back to assignments</LinkButton>} />
+  if (a.status !== 'published') return <EmptyState title="Not published yet" body="Your teacher has not published this assignment." action={<LinkButton to="/student/assignments">Back to assignments</LinkButton>} />
   const book = REFERENCE_BOOKS.find((item) => item.subject === a.subject)
   const late = new Date() > new Date(a.dueAt)
   const locked = Boolean(existing?.submittedAt && !existing.returnedForRevision)
@@ -259,7 +260,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   }
   return (
     <div>
-      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<Link to="/student/ai-tutor"><Button variant="outline"><Bot className="h-4 w-4" /> Ask AI Tutor</Button></Link>} />
+      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<LinkButton to={`/student/ai-tutor?assignment=${a.id}`} variant="outline"><Bot className="h-4 w-4" /> Ask AI Tutor</LinkButton>} />
       {late && <p className="mb-4 flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-300" role="alert"><AlertTriangle className="h-4 w-4" /> Past due — late policy: {a.latePolicy === 'reject' ? 'late submissions are not accepted' : a.latePolicy === 'accept-penalty' ? 'accepted with a penalty' : 'accepted'}.</p>}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
@@ -312,7 +313,7 @@ export function StudentSubmissions() {
   return (
     <div>
       <PageHeader title="My Submissions" sub="Every submission, its status, grade and feedback." />
-      {mine.length === 0 ? <EmptyState title="No submissions yet" body="Submit an assignment and it will appear here with its status and feedback." action={<Link to="/student/assignments"><Button>View assignments</Button></Link>} /> : (
+      {mine.length === 0 ? <EmptyState title="No submissions yet" body="Submit an assignment and it will appear here with its status and feedback." action={<LinkButton to="/student/assignments">View assignments</LinkButton>} /> : (
         <div className="space-y-3">{mine.map((s) => {
           const a = assignments.find((x) => x.id === s.assignmentId)
           return (
@@ -343,7 +344,7 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
   useEffect(() => { setAnswer(existing?.text ?? '') }, [existing?.id, selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="mt-4" aria-labelledby="focus-assessments-title">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="focus-assessments-title" className="font-display text-lg font-bold">Assessments</h2>
@@ -416,10 +417,10 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
 function FocusDial({ planned }: { planned: number }) {
   const { af, elapsed, remaining } = useFocusClock()
   return (
-    <div className="relative flex h-56 w-56 items-center justify-center">
-      <svg width="224" height="224" className="-rotate-90" role="img" aria-label={af ? `Focus timer: ${formatDuration(remaining)} remaining` : 'Focus timer ready'}>
+    <div className="relative flex aspect-square w-full max-w-56 items-center justify-center">
+      <svg viewBox="0 0 224 224" className="h-full w-full -rotate-90" role="img" aria-label={af ? `Focus timer: ${formatDuration(remaining)} remaining` : 'Focus timer ready'}>
         <circle cx="112" cy="112" r="100" fill="none" strokeWidth="12" className="stroke-slate-200 dark:stroke-slate-700" />
-        <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
+        <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" className="progress-stroke" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
       </svg>
       <div className="absolute text-center">
         <p className="font-mono text-5xl font-bold">{af ? formatDuration(remaining) : formatDuration(planned)}</p>
@@ -474,8 +475,8 @@ export function FocusPage() {
           <Button type="submit" variant="outline">Request guardian link</Button>
         </form>
       </Card>}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="flex flex-col items-center p-8 text-center">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="flex flex-col items-center p-5 text-center sm:p-8">
           <FocusDial planned={planned} />
           {af ? (
             <div className="mt-6 w-full">
@@ -526,7 +527,7 @@ export function FocusHistory() {
   return (
     <div>
       <PageHeader title="Focus History" sub={`${mine.length} completed sessions · ${formatMinutes(totalMs)} total active focus time.`} />
-      {mine.length === 0 ? <EmptyState title="No focus sessions yet" body="Start a session in Focus Mode and it will be recorded here." action={<Link to="/student/focus"><Button>Start a session</Button></Link>} /> : (
+      {mine.length === 0 ? <EmptyState title="No focus sessions yet" body="Start a session in Focus Mode and it will be recorded here." action={<LinkButton to="/student/focus">Start a session</LinkButton>} /> : (
         <div className="space-y-3">{mine.map((s) => (
           <Card key={s.id} className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -652,7 +653,7 @@ export function StudyPlanner() {
               <input type="checkbox" checked={it.done} onChange={() => togglePlanItem(it.id)} className="h-5 w-5 accent-indigo-600" aria-label={`Mark ${it.title} done`} />
               <span className={it.done ? 'line-through text-slate-400' : ''}><span className="block font-semibold">{it.title}</span><span className="text-sm text-slate-500">{fmtDate(it.date)} · {fmtMin(it.startMin)} · {it.durationMin} min</span></span>
             </label>
-            <Link to={it.assignmentId ? `/student/assignments/${it.assignmentId}` : '/student/assignments'}><Button size="sm" variant="outline">Open</Button></Link>
+            <LinkButton to={it.assignmentId ? `/student/assignments/${it.assignmentId}` : '/student/assignments'} size="sm" variant="outline">Open</LinkButton>
           </Card>
         ))}</div>
       )}
@@ -766,24 +767,7 @@ export function StudentAnalytics() {
 }
 
 export function StudentNotifications() {
-  const user = useCurrentUser()!
-  const { notifications, markRead, markAllRead } = useStore()
-  const mine = notifications.filter((n) => n.userId === user.id).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-  return (
-    <div>
-      <PageHeader title="Notifications" sub="Assignment, deadline, feedback and grade alerts." action={<Button variant="outline" onClick={() => markAllRead(user.id)}>Mark all as read</Button>} />
-      {mine.length === 0 ? <EmptyState title="No notifications" body="When something needs your attention, it will appear here." /> : (
-        <div className="space-y-2">{mine.map((n) => (
-          <Card key={n.id} className={`p-4 ${n.read ? 'opacity-70' : ''}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div><Link to={n.link} className="font-semibold hover:text-royal-500" onClick={() => markRead(n.id)}>{n.title}</Link><p className="text-sm text-slate-600 dark:text-slate-300">{n.body}</p><p className="mt-1 text-xs text-slate-400">{new Date(n.createdAt).toLocaleString()}</p></div>
-              {!n.read && <Badge color="rose">New</Badge>}
-            </div>
-          </Card>
-        ))}</div>
-      )}
-    </div>
-  )
+  return <Notifications description="Assignments, deadlines, feedback and grades." />
 }
 
 export function StudentProfile() {

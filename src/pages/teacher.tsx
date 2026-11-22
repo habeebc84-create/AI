@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
+import { Notifications } from '../components/notifications'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BookOpen, Users, ClipboardList, BarChart3, Megaphone, Plus, Send, Download, CheckCircle2, RotateCcw, FileText } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
-import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
+import { PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, fmtDateTime, localDateTimeInput, validateUploadFile, dataUrlToBlob, type StoredFile } from '../lib/utils'
 import type { Assignment } from '../lib/types'
 
@@ -22,7 +23,7 @@ export function TeacherDashboard() {
   })
   return (
     <div>
-      <PageHeader title={`Hello, ${user.name}`} sub="Your classes, assignments and grading queue — from real records." action={<Link to="/teacher/assignments/create"><Button><Plus className="h-4 w-4" /> New Assignment</Button></Link>} />
+      <PageHeader title={`Hello, ${user.name}`} sub="Your classes, assignments and grading queue — from real records." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Classes', value: String(myClasses.length), sub: `${students.size} students`, icon: Users },
@@ -107,14 +108,14 @@ export function TeacherAssignments() {
   const mine = assignments.filter((a) => a.teacherId === user.id)
   return (
     <div>
-      <PageHeader title="Assignments" sub="Everything you have created, draft or published." action={<Link to="/teacher/assignments/create"><Button><Plus className="h-4 w-4" /> New Assignment</Button></Link>} />
-      {mine.length === 0 ? <EmptyState title="No assignments yet" body="Create your first assignment — it takes a minute." action={<Link to="/teacher/assignments/create"><Button>Create assignment</Button></Link>} /> : (
+      <PageHeader title="Assignments" sub="Everything you have created, draft or published." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
+      {mine.length === 0 ? <EmptyState title="No assignments yet" body="Create your first assignment — it takes a minute." action={<LinkButton to="/teacher/assignments/create">Create assignment</LinkButton>} /> : (
         <div className="space-y-3">{mine.map((a) => {
           const subs = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
           return (
             <Card key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div><Link to={`/teacher/assignments/${a.id}`} className="font-display font-bold hover:text-royal-500">{a.title}</Link><p className="text-sm text-slate-500">{a.subject} · due {fmtDateTime(a.dueAt)} · {a.maxMarks} marks · {subs.length} submissions</p></div>
-              <div className="flex items-center gap-2">{statusBadge(a.status)}<Link to={`/teacher/assignments/${a.id}`}><Button size="sm" variant="outline">Manage</Button></Link></div>
+              <div className="flex items-center gap-2">{statusBadge(a.status)}<LinkButton to={`/teacher/assignments/${a.id}`} size="sm" variant="outline">Manage</LinkButton></div>
             </Card>
           )
         })}</div>
@@ -195,7 +196,7 @@ export function TeacherAssignmentDetail() {
   const [editing, setEditing] = useState(false)
   const [instructions, setInstructions] = useState('')
   const [referenceNotes, setReferenceNotes] = useState('')
-  if (!a) return <EmptyState title="Assignment not found" body="It may belong to another teacher." action={<Link to="/teacher/assignments"><Button>Back</Button></Link>} />
+  if (!a) return <EmptyState title="Assignment not found" body="It may belong to another teacher." action={<LinkButton to="/teacher/assignments">Back</LinkButton>} />
   const submitted = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
   const graded = submitted.filter((s) => s.grade !== null)
   const enrolled = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
@@ -252,7 +253,7 @@ export function TeacherSubmissions() {
           return (
             <Card key={s.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div><p className="font-display font-bold">{st?.name} — {a?.title}</p><p className="text-sm text-slate-500">Submitted {s.submittedAt ? fmtDateTime(s.submittedAt) : ''}{s.isLate ? ' · late' : ''} · {s.files.length} file{s.files.length === 1 ? '' : 's'}</p></div>
-              <div className="flex items-center gap-2">{statusBadge(s.status)}{s.grade !== null && <Badge color="emerald">{s.grade}/{a?.maxMarks}</Badge>}<Link to={`/teacher/submissions/${s.id}`}><Button size="sm">Review</Button></Link></div>
+              <div className="flex items-center gap-2">{statusBadge(s.status)}{s.grade !== null && <Badge color="emerald">{s.grade}/{a?.maxMarks}</Badge>}<LinkButton to={`/teacher/submissions/${s.id}`} size="sm">Review</LinkButton></div>
             </Card>
           )
         })}</div>
@@ -270,7 +271,7 @@ export function TeacherSubmissionDetail() {
   const [feedback, setFeedback] = useState('')
   const s = submissions.find((x) => x.id === id)
   const a = s ? assignments.find((x) => x.id === s.assignmentId && x.teacherId === user.id) : undefined
-  if (!s?.submittedAt || s.returnedForRevision || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<Link to="/teacher/submissions"><Button>Back</Button></Link>} />
+  if (!s?.submittedAt || s.returnedForRevision || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<LinkButton to="/teacher/submissions">Back</LinkButton>} />
   const st = users.find((u) => u.id === s.studentId)
   const downloadFile = (f: StoredFile) => {
     // Files uploaded since local storage was introduced carry their real
@@ -394,7 +395,7 @@ export function TeacherSettings() {
         <h2 className="font-display font-bold">Grading & notifications</h2>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">You are notified for every new submission in your classes. Grade notifications to students and guardians are sent automatically when you publish a grade.</p>
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Focus data is private to each student by default and is not shown to teachers. Only assignment and submission records are shared with you.</p>
-        <Link to="/teacher/announcements" className="mt-4 inline-block"><Button variant="outline"><Megaphone className="h-4 w-4" /> Manage announcements</Button></Link>
+        <LinkButton to="/teacher/announcements" variant="outline" className="mt-4 inline-block"><Megaphone className="h-4 w-4" /> Manage announcements</LinkButton>
       </Card>
     </div>
   )
@@ -402,21 +403,5 @@ export function TeacherSettings() {
 
 
 export function TeacherNotifications() {
-  const user = useCurrentUser()!
-  const { notifications, markRead, markAllRead } = useStore()
-  const notices = notifications.filter((notice) => notice.userId === user.id)
-  return (
-    <div>
-      <PageHeader title="Notifications" sub="New submissions and updates for your classes."
-        action={<Button variant="outline" disabled={!notices.some((notice) => !notice.read)} onClick={() => markAllRead(user.id)}>Mark all read</Button>} />
-      {!notices.length && <EmptyState title="You're caught up" body="New submissions will appear here." />}
-      <div className="space-y-3">{notices.map((notice) => (
-        <Card key={notice.id} className="flex items-start justify-between gap-3 p-4">
-          <div><Link to={notice.link} className="font-semibold hover:underline" onClick={() => markRead(notice.id)}>{notice.title}</Link>
-            <p className="text-sm text-slate-500">{notice.body}</p><p className="mt-1 text-xs text-slate-500">{fmtDateTime(notice.createdAt)}</p></div>
-          {!notice.read && <Badge color="indigo">New</Badge>}
-        </Card>
-      ))}</div>
-    </div>
-  )
+  return <Notifications description="New submissions and updates for your classes." />
 }

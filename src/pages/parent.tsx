@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
+import { Notifications } from '../components/notifications'
 import { Link } from 'react-router-dom'
 import { Users, BookOpen, BarChart3, FileText, Bell, Download, GraduationCap } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser } from '../lib/store'
-import { PageHeader, Button, Card, Input, Label, Select, Badge, statusBadge, EmptyState, toast } from '../components/ui'
+import { PageHeader, Button, LinkButton, Card, Input, Label, Select, Badge, statusBadge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
 
 function useChildren() {
@@ -22,7 +23,7 @@ export function ParentDashboard() {
     <div>
       <PageHeader title={`Hello, ${user.name}`} sub="Progress for your linked children only — never other students." />
       {children.length === 0 ? (
-        <EmptyState title="No children linked yet" body="A guardian link is created by invitation. Ask your child's school or teacher to send one, or link from the Children page once an invitation exists." action={<Link to="/parent/children"><Button>Go to My Children</Button></Link>} />
+        <EmptyState title="No children linked yet" body="A guardian link is created by invitation. Ask your child's school or teacher to send one, or link from the Children page once an invitation exists." action={<LinkButton to="/parent/children">Go to My Children</LinkButton>} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -164,21 +165,7 @@ export function ParentReports() {
 }
 
 export function ParentNotifications() {
-  const user = useCurrentUser()!
-  const { notifications, markRead, markAllRead } = useStore()
-  const mine = notifications.filter((n) => n.userId === user.id).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-  return (
-    <div>
-      <PageHeader title="Notifications" sub="Grades, deadlines and updates for your children." action={<Button variant="outline" onClick={() => markAllRead(user.id)}>Mark all as read</Button>} />
-      {mine.length === 0 ? <EmptyState title="No notifications" body="Updates about your children will appear here." /> : (
-        <div className="space-y-2">{mine.map((n) => (
-          <Card key={n.id} className={`p-4 ${n.read ? 'opacity-70' : ''}`}>
-            <div className="flex items-start justify-between gap-3"><div><Link to={n.link} className="font-semibold hover:text-royal-500" onClick={() => markRead(n.id)}>{n.title}</Link><p className="text-sm text-slate-600 dark:text-slate-300">{n.body}</p><p className="mt-1 text-xs text-slate-400">{new Date(n.createdAt).toLocaleString()}</p></div>{!n.read && <Badge color="rose">New</Badge>}</div>
-          </Card>
-        ))}</div>
-      )}
-    </div>
-  )
+  return <Notifications description="Grades, deadlines and updates for your children." />
 }
 
 export function ParentSettings() {

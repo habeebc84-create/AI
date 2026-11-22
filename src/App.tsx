@@ -1,9 +1,9 @@
-import { BrowserRouter, HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useCurrentUser } from './lib/store'
 import { AppShell, useFocusVisibility } from './components/layout'
 import { Landing, Features, HowItWorks, About, Contact, Privacy, Terms, Login, Register, ForgotPassword, NotFound } from './pages/public'
 import type { Role } from './lib/types'
-import { lazy, type ComponentType } from 'react'
+import { lazy, useEffect, type ComponentType } from 'react'
 
 // Keep each role's pages (and the chart library they use) out of public routes.
 function pagesFrom<T extends Record<string, ComponentType>>(load: () => Promise<T>) {
@@ -81,10 +81,19 @@ function RoleHome() {
 // GitHub Pages serves static files. Keep workspace routes in the URL fragment there.
 const Router = import.meta.env.MODE === 'github-pages' ? HashRouter : BrowserRouter
 
+function RouteScroll() {
+  const { pathname, hash } = useLocation()
+  useEffect(() => {
+    if (!hash && window.scrollY > 0) window.scrollTo(0, 0)
+  }, [pathname, hash])
+  return null
+}
+
 export default function App() {
   useFocusVisibility()
   return (
     <Router>
+      <RouteScroll />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/features" element={<Features />} />

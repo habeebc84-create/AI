@@ -18,3 +18,8 @@ if (typeof window !== 'undefined' && !window.ResizeObserver) {
     disconnect() {}
   } as unknown as typeof ResizeObserver
 }
+// jsdom exposes the element but does not implement the native dialog methods.
+if (!HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true }
+  HTMLDialogElement.prototype.close = function () { this.open = false }
+}
