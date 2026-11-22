@@ -141,3 +141,55 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
     expect(isStaleFocusSession(new Date(now - 30 * 60 * 1000).toISOString(), now)).toBe(false)
   })
 })
+
+it('connects newly added roles through class enrolment, publishing, grading and guardian access', async () => {
+  const state = useStore.getState
+  const signIn = (email: string) => expect(state().login(email, 'demo1234').ok).toBe(true)
+  signIn('admin@demo.focused.ai')
+  expect(state().saveInstitutionName('Test Academy').ok).toBe(true)
+  expect(state().addAccount('New Teacher', 'new-teacher@example.com', 'demo1234', 'teacher', '').ok).toBe(true)
+  expect(state().addAccount('New Guardian', 'new-parent@example.com', 'demo1234', 'parent', '').ok).toBe(true)
+  expect(state().addAccount('New Student', 'new-student@example.com', 'demo1234', 'student', '').ok).toBe(true)
+  expect(state().addAccount('Another Admin', 'new-admin@example.com', 'demo1234', 'admin', '').ok).toBe(true)
+  expect(state().addAccount('Duplicate', 'NEW-ADMIN@example.com', 'demo1234', 'admin', '').ok).toBe(false)
+  const teacher = state().users.find((user) => user.email === 'new-teacher@example.com')!
+  const student = state().users.find((user) => user.email === 'new-student@example.com')!
+  expect(state().addClass('Art Studio', 'Class 11', 'Art', teacher.id).ok).toBe(true)
+  const classroom = state().classes.find((item) => item.name === 'Art Studio')!
+  expect(state().enrollStudent(classroom.id, student.id).ok).toBe(true)
+  expect(state().enrollStudent(classroom.id, student.id).ok).toBe(false)
+  await useStore.persist.rehydrate()
+  expect(state().institutionName).toBe('Test Academy')
+  expect(state().classes.find((item) => item.id === classroom.id)?.studentIds).toEqual([student.id])
+  expect(state().users.find((item) => item.id === student.id)?.classId).toBe(classroom.id)
+
+  signIn(teacher.email)
+  expect(state().addAccount('Unauthorised', 'blocked@example.com', 'demo1234', 'admin', '').ok).toBe(false)
+  const id = state().createAssignment({
+    title: 'Sketch', description: '', instructions: 'Draw a still life.', subject: 'Art',
+    classId: classroom.id, teacherId: teacher.id, dueAt: new Date(Date.now() + 86400000).toISOString(),
+    maxMarks: 10, submissionFormat: 'Text response', status: 'published', latePolicy: 'accept',
+  })
+  expect(id).toBeTruthy()
+
+  signIn(student.email)
+  expect(state().submitAssignment('a_essay', student.id, 'Other class', []).ok).toBe(false)
+  expect(state().submitAssignment(id, student.id, 'Sketch notes', []).ok).toBe(true)
+  expect(state().inviteGuardian('new-parent@example.com', student.id).ok).toBe(true)
+  const submission = state().submissions.find((item) => item.assignmentId === id)!
+  const link = state().guardianLinks.find((item) => item.studentId === student.id)!
+  signIn('new-parent@example.com')
+  state().acceptGuardian(link.id)
+  expect(state().guardianLinks.find((item) => item.id === link.id)?.status).toBe('accepted')
+
+  signIn('priya@demo.focused.ai')
+  state().gradeSubmission(submission.id, 1, 'Wrong teacher')
+  expect(state().submissions.find((item) => item.id === submission.id)?.grade).toBeNull()
+
+  signIn(teacher.email)
+  expect(state().notifications.some((item) => item.userId === teacher.id && item.type === 'submission')).toBe(true)
+  state().gradeSubmission(submission.id, 9, 'Nice work.')
+  expect(state().notifications.some((item) => item.userId === link.parentId && item.type === 'grade')).toBe(true)
+  signIn('new-admin@example.com')
+  expect(state().auditLogs.some((log) => log.action === 'class.enroll')).toBe(true)
+})

@@ -1,19 +1,19 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, BookOpen, BarChart3, Bot, Shield, Settings, FileText, CheckCircle2, KeyRound } from 'lucide-react'
+import { Users, BookOpen, BarChart3, Bot, Shield, Settings, FileText, CheckCircle2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Select, Badge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
-import type { AiProviderConfig } from '../lib/types'
+import type { AiProviderConfig, Role } from '../lib/types'
 
 export function AdminDashboard() {
-  const { users, classes, assignments, submissions, focusSessions } = useStore()
+  const { users, classes, assignments, submissions, focusSessions, institutionName } = useStore()
   const byRole = (r: string) => users.filter((u) => u.role === r).length
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
   return (
     <div>
-      <PageHeader title="Administrator Dashboard" sub="System-wide overview for Sunrise Public School (sample data, stored on this computer)." />
+      <PageHeader title="Administrator Dashboard" sub={institutionName} action={<Link to="/admin/users" className="font-semibold text-royal-500 underline">Manage accounts</Link>} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Users', value: String(users.length), sub: `${plural(byRole('student'), 'student')} · ${plural(byRole('teacher'), 'teacher')} · ${plural(byRole('parent'), 'parent')} · ${plural(byRole('admin'), 'admin')}`, icon: Users },
@@ -36,40 +36,102 @@ export function AdminDashboard() {
         </Card>
         <Card className="p-5">
           <h2 className="font-display font-bold">Completion by class</h2>
-          <div className="mt-4 h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={classes.map((c) => ({ name: c.name, rate: completionRate(submissions.filter((s) => s.submittedAt && c.studentIds.includes(s.studentId)).length, Math.max(1, c.studentIds.length * assignments.filter((a) => a.classId === c.id && a.status === 'published').length)) }))}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} name="Completion %" /></BarChart></ResponsiveContainer></div>
+          <div className="mt-4 h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={classes.map((c) => ({ name: c.name, rate: completionRate(submissions.filter((s) => s.submittedAt && !s.returnedForRevision && c.studentIds.includes(s.studentId) && assignments.some((a) => a.id === s.assignmentId && a.classId === c.id && a.status === 'published')).length, Math.max(1, c.studentIds.length * assignments.filter((a) => a.classId === c.id && a.status === 'published').length)) }))}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} name="Completion %" /></BarChart></ResponsiveContainer></div>
         </Card>
       </div>
     </div>
   )
 }
 
+const roles: Role[] = ['student', 'teacher', 'parent', 'admin']
+
 export function AdminUsers() {
-  const { users, updateProfile } = useStore()
+  const { users, classes, addAccount } = useStore()
   const [filter, setFilter] = useState('all')
+  const [role, setRole] = useState<Role>('student')
+  const [showAdd, setShowAdd] = useState(false)
+  const [error, setError] = useState('')
   const list = users.filter((u) => filter === 'all' || u.role === filter)
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const result = addAccount(String(form.get('name')), String(form.get('email')), String(form.get('password')), role, String(form.get('classId') ?? ''))
+    if (!result.ok) { setError(result.error ?? 'Could not add the account.'); return }
+    setError('')
+    setFilter(role)
+    setShowAdd(false)
+    toast('Account created.')
+  }
   return (
     <div>
-      <PageHeader title="User Management" sub="All accounts. Teacher and admin roles are invitation-only — they cannot be granted from a registration form." action={<Select value={filter} onChange={(e) => setFilter(e.target.value)} className="w-40" aria-label="Filter by role"><option value="all">All roles</option>{['student', 'teacher', 'parent', 'admin'].map((r) => <option key={r} value={r}>{r}</option>)}</Select>} />
+      <PageHeader title="User Management" sub="Add and find accounts on this browser." action={<Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd}>{showAdd ? 'Cancel' : 'Add account'}</Button>} />
+      {showAdd && <Card className="mb-5 max-w-2xl p-5">
+        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+          <div><Label htmlFor="account-name">Full name</Label><Input id="account-name" name="name" required /></div>
+          <div><Label htmlFor="account-email">Email</Label><Input id="account-email" name="email" type="email" required /></div>
+          <div><Label htmlFor="account-password">Demo password</Label><Input id="account-password" name="password" type="password" autoComplete="new-password" minLength={6} required /></div>
+          <div><Label htmlFor="account-role">Role</Label><Select id="account-role" value={role} onChange={(event) => setRole(event.target.value as Role)}>{roles.map((value) => <option key={value}>{value}</option>)}</Select></div>
+          {role === 'student' && <div><Label htmlFor="account-class">Class</Label><Select id="account-class" name="classId"><option value="">Assign later</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>}
+          {error && <p className="text-sm text-rose-600 sm:col-span-2" role="alert">{error}</p>}
+          <div className="sm:col-span-2"><Button type="submit">Create account</Button></div>
+        </form>
+      </Card>}
+      <div className="mb-3 max-w-48"><Label htmlFor="role-filter">Filter by role</Label><Select id="role-filter" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All roles</option>{roles.map((value) => <option key={value}>{value}</option>)}</Select></div>
+      {!list.length && <EmptyState title="No accounts in this role" body="Add an account or choose another role." />}
       <div className="space-y-2">{list.map((u) => (
         <Card key={u.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div><p className="font-semibold">{u.name}</p><p className="text-sm text-slate-500">{u.email} · {u.school ?? ''} {u.grade ? `· ${u.grade}` : ''}</p></div>
-          <div className="flex items-center gap-2"><Badge color={u.role === 'admin' ? 'rose' : u.role === 'teacher' ? 'indigo' : u.role === 'parent' ? 'cyan' : 'slate'}>{u.role}</Badge>
-            {u.role === 'student' && <Button size="sm" variant="outline" onClick={() => { updateProfile(u.id, { role: 'teacher' }); toast(`${u.name} promoted to teacher. In a managed deployment this requires an invitation and audit entry.`) }}>Make teacher</Button>}
-          </div>
+          <div className="min-w-0"><p className="font-semibold">{u.name}</p><p className="break-words text-sm text-slate-500">{u.email}{u.grade && ` · ${u.grade}`}</p></div>
+          <Badge color={u.role === 'admin' ? 'rose' : u.role === 'teacher' ? 'indigo' : u.role === 'parent' ? 'cyan' : 'slate'}>{u.role}</Badge>
         </Card>
       ))}</div>
-      <p className="mt-3 text-sm text-slate-500">Role changes are written to the audit log. In production, privileged roles are provisioned server-side only.</p>
     </div>
   )
 }
 
 export function AdminClasses() {
-  const { classes, users } = useStore()
+  const { classes, users, addClass, enrollStudent } = useStore()
+  const teachers = users.filter((user) => user.role === 'teacher')
+  const unassigned = users.filter((user) => user.role === 'student' && !user.classId)
+  const [showAdd, setShowAdd] = useState(false)
+  const [error, setError] = useState('')
+  const create = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const result = addClass(String(form.get('name')), String(form.get('grade')), String(form.get('subject')), String(form.get('teacher')))
+    if (!result.ok) { setError(result.error ?? 'Could not add the class.'); return }
+    setShowAdd(false)
+    setError('')
+    toast('Class created.')
+  }
   return (
     <div>
-      <PageHeader title="Class Management" sub="Classes, their teachers and enrolment." />
+      <PageHeader title="Class Management" sub="Assign teachers and enrol students." action={<Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd}>{showAdd ? 'Cancel' : 'Add class'}</Button>} />
+      {showAdd && <Card className="mb-5 max-w-2xl p-5">
+        <form onSubmit={create} className="grid gap-3 sm:grid-cols-2">
+          <div><Label htmlFor="class-name">Class name</Label><Input id="class-name" name="name" required /></div>
+          <div><Label htmlFor="class-grade">Grade</Label><Input id="class-grade" name="grade" required /></div>
+          <div><Label htmlFor="class-subject">Subject</Label><Input id="class-subject" name="subject" required /></div>
+          <div><Label htmlFor="class-teacher">Teacher</Label><Select id="class-teacher" name="teacher" required><option value="">Select teacher</option>{teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</Select></div>
+          {error && <p className="text-sm text-rose-600 sm:col-span-2" role="alert">{error}</p>}
+          <div className="sm:col-span-2"><Button type="submit">Create class</Button></div>
+        </form>
+      </Card>}
       <div className="grid gap-4 md:grid-cols-2">{classes.map((c) => (
-        <Card key={c.id} className="p-5"><h3 className="font-display text-lg font-bold">{c.name}</h3><p className="text-sm text-slate-500">{c.grade} · {c.subject} · Teacher: {users.find((u) => u.id === c.teacherId)?.name}</p><p className="mt-2 text-sm">{c.studentIds.length} students enrolled</p></Card>
+        <Card key={c.id} className="p-5">
+          <h2 className="font-display text-lg font-bold">{c.name}</h2>
+          <p className="text-sm text-slate-500">{c.grade} · {c.subject} · {users.find((u) => u.id === c.teacherId)?.name ?? 'Unassigned teacher'}</p>
+          <p className="mt-2 text-sm">{c.studentIds.length} students enrolled</p>
+          {!!unassigned.length && <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => {
+            event.preventDefault()
+            const student = new FormData(event.currentTarget).get('student')
+            const result = enrollStudent(c.id, String(student))
+            toast(result.ok ? 'Student enrolled.' : result.error ?? 'Could not enrol student.', result.ok ? 'success' : 'error')
+            if (result.ok) event.currentTarget.reset()
+          }}>
+            <div><Label htmlFor={`enrol-${c.id}`}>Unassigned student</Label><Select id={`enrol-${c.id}`} name="student" required defaultValue=""><option value="">Select student</option>{unassigned.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</Select></div>
+            <Button type="submit" variant="outline">Enrol</Button>
+          </form>}
+        </Card>
       ))}</div>
     </div>
   )
@@ -91,15 +153,20 @@ export function AdminAssignments() {
 }
 
 export function AdminAnalytics() {
-  const { assignments, submissions, focusSessions, users } = useStore()
+  const { assignments, classes, submissions, focusSessions, users } = useStore()
   const published = assignments.filter((a) => a.status === 'published')
-  const subs = submissions.filter((s) => s.submittedAt)
-  const data = published.map((a) => ({ name: a.title.length > 14 ? a.title.slice(0, 14) + '…' : a.title, rate: completionRate(subs.filter((s) => s.assignmentId === a.id).length, 4) }))
+  const data = published.map((assignment) => {
+    const enrolled = classes.find((item) => item.id === assignment.classId)?.studentIds ?? []
+    const received = submissions.filter((item) => item.assignmentId === assignment.id && item.submittedAt && !item.returnedForRevision && enrolled.includes(item.studentId))
+    return { name: assignment.title.length > 14 ? assignment.title.slice(0, 14) + '…' : assignment.title, received, expected: enrolled.length, rate: completionRate(received.length, enrolled.length) }
+  })
+  const subs = data.flatMap((item) => item.received)
+  const expected = data.reduce((total, item) => total + item.expected, 0)
   return (
     <div>
       <PageHeader title="System Analytics" sub="Institution-wide trends from real records." />
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card className="p-5"><p className="text-sm text-slate-500">Completion rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.length, published.length * 4)}%</p></Card>
+        <Card className="p-5"><p className="text-sm text-slate-500">Completion rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.length, expected)}%</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">On-time submissions</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.filter((s) => !s.isLate).length, Math.max(1, subs.length))}%</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">Focus sessions</p><p className="mt-1 font-display text-3xl font-extrabold">{focusSessions.length}</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">Active users</p><p className="mt-1 font-display text-3xl font-extrabold">{users.length}</p></Card>
@@ -118,16 +185,14 @@ export function AdminAiSettings() {
   const [temperature, setTemperature] = useState(aiConfig.temperature)
   const [timeoutMs, setTimeoutMs] = useState(aiConfig.timeoutMs)
   const [dailyLimit, setDailyLimit] = useState(aiConfig.dailyLimit)
-  const [keyNote, setKeyNote] = useState('')
   const save = (e: FormEvent) => {
     e.preventDefault()
-    updateAiConfig({ provider, model, endpoint, maxTokens, temperature, timeoutMs, dailyLimit, configured: provider !== 'none' && keyNote.trim().length > 0 })
-    toast(provider === 'none' ? 'AI provider disabled — tutor uses demo hints.' : keyNote.trim() ? 'Provider settings saved. The key is stored server-side only (Edge Function secret) — never in the browser.' : 'Settings saved, but no key was provided — the tutor stays in demo-hints mode until a server-side key is set.')
-    setKeyNote('')
+    updateAiConfig({ provider, model: model.trim(), endpoint: endpoint.trim(), maxTokens, temperature, timeoutMs, dailyLimit })
+    toast('Provider preferences saved. The tutor uses the built-in reference books.')
   }
   return (
     <div>
-      <PageHeader title="AI Settings" sub="Provider-agnostic configuration. API keys are never stored in the browser or shown after entry." />
+      <PageHeader title="AI Settings" sub="Save provider preferences for this demo. The tutor uses built-in reference books." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-6">
           <h2 className="font-display font-bold">Provider configuration</h2>
@@ -135,7 +200,6 @@ export function AdminAiSettings() {
             <div><Label>Provider</Label><Select value={provider} onChange={(e) => setProvider(e.target.value as AiProviderConfig['provider'])}><option value="none">None — demo hints</option><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic</option><option value="openrouter">OpenRouter</option><option value="groq">Groq</option><option value="custom">Custom OpenAI-compatible</option></Select></div>
             <div><Label>Model</Label><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. gpt-4o-mini" /></div>
             <div><Label>Endpoint (custom providers only)</Label><Input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://api.example.com/v1" /></div>
-            <div><Label><KeyRound className="mr-1 inline h-4 w-4" /> API key — server-side only</Label><Input type="password" value={keyNote} onChange={(e) => setKeyNote(e.target.value)} placeholder="Paste the key here — it is kept on this computer only, never sent anywhere" autoComplete="off" /><p className="mt-1 text-xs text-slate-500">Local storage only: the key is kept as a configuration note on this computer. The AI tutor gives guided hints until a provider is connected — see docs/AI_SETUP.md.</p></div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Max output tokens</Label><Input type="number" value={maxTokens} onChange={(e) => setMaxTokens(Number(e.target.value))} /></div>
               <div><Label>Timeout (ms)</Label><Input type="number" value={timeoutMs} onChange={(e) => setTimeoutMs(Number(e.target.value))} /></div>
@@ -150,11 +214,11 @@ export function AdminAiSettings() {
           <ul className="mt-3 space-y-2 text-sm">
             <li>Provider: <strong>{aiConfig.provider}</strong></li>
             <li>Model: <strong>{aiConfig.model || '—'}</strong></li>
-            <li>Status: {aiConfig.configured ? <Badge color="emerald">Configured</Badge> : <Badge color="amber">Not configured — demo hints</Badge>}</li>
+            <li>Status: <Badge color="indigo">Built-in reference tutor</Badge></li>
             <li>Daily limit: {aiConfig.dailyLimit} requests · Timeout: {aiConfig.timeoutMs} ms · Max tokens: {aiConfig.maxTokens}</li>
           </ul>
           <h3 className="mt-5 font-display font-bold">How the tutor behaves</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">With no provider configured, the tutor gives deterministic guided hints and says so clearly. With a provider configured, requests go through the authenticated Edge Function with the key held server-side, rate limits, timeouts and usage logging — never a direct browser-to-provider call.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Tutor responses use the reference books included with this app. Saved provider preferences do not connect a service.</p>
         </Card>
       </div>
     </div>
@@ -165,7 +229,7 @@ export function AdminSecurity() {
   const { auditLogs, users } = useStore()
   return (
     <div>
-      <PageHeader title="Security" sub="Access events and role changes. Failed authorisation attempts are logged here." />
+      <PageHeader title="Security" sub="Recorded sign-ins, account creation and administrative changes." />
       <Card className="p-6">
         <h2 className="font-display font-bold">Access & role events</h2>
         {auditLogs.length === 0 ? <EmptyState title="No audit events yet" body="Sign-ins, role changes and admin actions are recorded here." /> : (
@@ -177,8 +241,8 @@ export function AdminSecurity() {
         )}
         <h3 className="mt-6 font-display font-bold">Protections in place</h3>
         <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-slate-600 dark:text-slate-300">
-          <li>Role-based route guards on every protected page; privileged roles are invitation-only.</li>
-          <li>Row Level Security in the Supabase schema (63 policies) — the frontend never decides access alone.</li>
+          <li>Each workspace checks the signed-in demo role. Administrators add accounts.</li>
+          <li>This demo stores accounts and data in the browser profile.</li>
           <li>File uploads validated by type and size; downloads are ownership-checked.</li>
           <li>AI keys held server-side only; the browser never receives a secret.</li>
           <li>No webcam, microphone or screen-recording capability exists in this application.</li>
@@ -189,21 +253,22 @@ export function AdminSecurity() {
 }
 
 export function AdminSystemSettings() {
-  const [name, setName] = useState('Sunrise Public School')
-  const [retention, setRetention] = useState('365')
-  const [maxUpload, setMaxUpload] = useState('10')
-  const save = (e: FormEvent) => { e.preventDefault(); toast('System settings saved on this computer.') }
+  const { institutionName, saveInstitutionName } = useStore()
+  const [name, setName] = useState(institutionName)
+  const save = (e: FormEvent) => {
+    e.preventDefault()
+    const result = saveInstitutionName(name)
+    toast(result.ok ? 'Institution name saved.' : result.error ?? 'Could not save settings.', result.ok ? 'success' : 'error')
+  }
   return (
     <div>
-      <PageHeader title="System Settings" sub="Institution configuration, retention and upload limits." />
+      <PageHeader title="System Settings" sub="Manage this browser's demo institution." />
       <Card className="max-w-lg p-6">
         <form onSubmit={save} className="space-y-4">
-          <div><Label>Institution name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div><Label>Data retention (days)</Label><Input type="number" value={retention} onChange={(e) => setRetention(e.target.value)} /></div>
-          <div><Label>Max upload size (MB)</Label><Input type="number" value={maxUpload} onChange={(e) => setMaxUpload(e.target.value)} /></div>
+          <div><Label htmlFor="institution-name">Institution name</Label><Input id="institution-name" value={name} onChange={(e) => setName(e.target.value)} required /></div>
           <Button type="submit">Save settings</Button>
         </form>
-        <p className="mt-3 text-sm">Status: All data is stored only on this computer (local storage). No server or cloud sync.</p>
+        <p className="mt-4 text-sm text-slate-500">Stored in this browser. Attachments store up to 2 MB per file and 4 MB total.</p>
       </Card>
     </div>
   )

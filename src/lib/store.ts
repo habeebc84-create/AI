@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type {
   AiConversation, AiProviderConfig, Announcement, AppNotification, Assignment,
   AuditLog, ClassRoom, FocusEvent, FocusSession, GuardianLink, StudyPlan,
-  Submission, User,
+  Submission, User, Role,
 } from './types'
 import { buildSeed, DEMO_PASSWORD, type SeedData } from './seed'
 import { generateTutorReply, type TutorLevel } from './ai'
@@ -41,7 +41,14 @@ function hiddenDuration(af: ActiveFocus, end: number) {
 
 interface FocusPrefs { pomodoroMin: number; shortBreakMin: number; longBreakMin: number }
 
+type ActionResult = { ok: boolean; error?: string }
+
 interface AppState extends SeedData {
+  institutionName: string
+  saveInstitutionName: (name: string) => ActionResult
+  addAccount: (name: string, email: string, password: string, role: Role, classId: string) => ActionResult
+  addClass: (name: string, grade: string, subject: string, teacherId: string) => ActionResult
+  enrollStudent: (classId: string, studentId: string) => ActionResult
   currentUserId: string | null
   focusLosses: Record<string, number>
   focusLockNotice: boolean
@@ -145,10 +152,15 @@ function notifyAssignmentPublished(state: AppState, assignment: Assignment) {
   }))
 }
 
+function currentActor(state: AppState, role: Role) {
+  return state.users.find((user) => user.id === state.currentUserId && user.role === role)
+}
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       ...seed,
+      institutionName: 'Sunrise Public School',
       currentUserId: null,
       focusLosses: {},
       focusLockNotice: false,
@@ -192,11 +204,67 @@ export const useStore = create<AppState>()(
       },
       resetDemo: () => {
         const fresh = buildSeed()
-        set({ ...fresh, currentUserId: null, focusLosses: {}, focusLockNotice: false, aiConfig: initialAiConfig, auditLogs: [], focusEvents: [], activeFocus: null })
+        set({ ...fresh, institutionName: 'Sunrise Public School', currentUserId: null, focusLosses: {}, focusLockNotice: false, aiConfig: initialAiConfig, auditLogs: [], focusEvents: [], activeFocus: null })
       },
-      updateProfile: (id, patch) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
+      updateProfile: (id, patch) => {
+        if (get().currentUserId !== id) return
+        const { name, subjects, department } = patch
+        set((s) => ({ users: s.users.map((u) => u.id === id ? {
+          ...u, name: name?.trim() || u.name, subjects: subjects ?? u.subjects, department: department ?? u.department,
+        } : u) }))
+      },
+      saveInstitutionName: (name) => {
+        const admin = currentActor(get(), 'admin')
+        if (!admin || !name.trim()) return { ok: false, error: 'Enter an institution name as an administrator.' }
+        set({ institutionName: name.trim() })
+        get().audit(admin.id, 'institution.update', 'Updated the institution name.')
+        return { ok: true }
+      },
+      addAccount: (name, email, password, role, classId) => {
+        const state = get()
+        const admin = currentActor(state, 'admin')
+        if (!admin) return { ok: false, error: 'Only administrators can add accounts.' }
+        const address = email.trim().toLowerCase()
+        if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) || password.length < 6) {
+          return { ok: false, error: 'Enter a name, a valid email and a demo password of at least six characters.' }
+        }
+        if (state.users.some((user) => user.email.toLowerCase() === address)) return { ok: false, error: 'That email already has an account.' }
+        const classroom = classId && role === 'student' ? state.classes.find((item) => item.id === classId) : undefined
+        if (role === 'student' && classId && !classroom) return { ok: false, error: 'Choose an existing class.' }
+        const user: User = { id: uid('u'), name: name.trim(), email: address, password, role, school: state.institutionName, classId: classroom?.id, grade: classroom?.grade, createdAt: new Date().toISOString() }
+        set({ users: [...state.users, user], classes: state.classes.map((item) => item.id === classroom?.id ? { ...item, studentIds: [...item.studentIds, user.id] } : item) })
+        get().audit(admin.id, 'account.create', `Added ${user.name} as ${role}.`)
+        return { ok: true }
+      },
+      addClass: (name, grade, subject, teacherId) => {
+        const state = get()
+        const admin = currentActor(state, 'admin')
+        if (!admin) return { ok: false, error: 'Only administrators can add classes.' }
+        if (!name.trim() || !grade.trim() || !subject.trim() || !state.users.some((user) => user.id === teacherId && user.role === 'teacher')) {
+          return { ok: false, error: 'Enter a class name, grade and subject, and select a teacher.' }
+        }
+        if (state.classes.some((item) => item.name.toLowerCase() === name.trim().toLowerCase())) return { ok: false, error: 'A class with that name already exists.' }
+        set({ classes: [...state.classes, { id: uid('c'), name: name.trim(), grade: grade.trim(), subject: subject.trim(), teacherId, studentIds: [] }] })
+        get().audit(admin.id, 'class.create', `Added ${name.trim()}.`)
+        return { ok: true }
+      },
+      enrollStudent: (classId, studentId) => {
+        const state = get()
+        const admin = currentActor(state, 'admin')
+        if (!admin) return { ok: false, error: 'Only administrators can enrol students.' }
+        const classroom = state.classes.find((item) => item.id === classId)
+        const student = state.users.find((user) => user.id === studentId && user.role === 'student' && !user.classId)
+        if (!classroom || !student) return { ok: false, error: 'Choose an unassigned student and an existing class.' }
+        set({
+          classes: state.classes.map((item) => item.id === classId ? { ...item, studentIds: [...new Set([...item.studentIds, studentId])] } : item),
+          users: state.users.map((user) => user.id === studentId ? { ...user, classId, grade: classroom.grade } : user),
+        })
+        get().audit(admin.id, 'class.enroll', `Enrolled ${student.name} in ${classroom.name}.`)
+        return { ok: true }
+      },
 
       createAssignment: (a) => {
+        if (currentActor(get(), 'teacher')?.id !== a.teacherId || !get().classes.some((item) => item.id === a.classId && item.teacherId === a.teacherId)) return ''
         const id = uid('a')
         const assignment: Assignment = { ...a, id, attachments: a.attachments ?? [], createdAt: new Date().toISOString() }
         set((s) => ({ assignments: [assignment, ...s.assignments] }))
@@ -204,10 +272,10 @@ export const useStore = create<AppState>()(
         get().audit(a.teacherId, 'assignment.create', `Created “${a.title}” (${a.status}).`)
         return id
       },
-      updateAssignment: (id, patch) => set((s) => ({ assignments: s.assignments.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
+      updateAssignment: (id, patch) => set((s) => ({ assignments: s.assignments.map((a) => (a.id === id && a.teacherId === currentActor(s, 'teacher')?.id ? { ...a, ...patch } : a)) })),
       publishAssignment: (id) => {
         const a = get().assignments.find((x) => x.id === id)
-        if (a?.status !== 'draft') return
+        if (a?.status !== 'draft' || a.teacherId !== currentActor(get(), 'teacher')?.id) return
         get().updateAssignment(id, { status: 'published' })
         notifyAssignmentPublished(get(), a)
         get().audit(a.teacherId, 'assignment.publish', `Published “${a.title}”.`)
@@ -215,7 +283,8 @@ export const useStore = create<AppState>()(
 
       saveDraft: (assignmentId, studentId, text, files) => {
         const { assignments, submissions } = get()
-        if (!assignments.some((a) => a.id === assignmentId && a.status === 'published')) {
+        const student = currentActor(get(), 'student')
+        if (student?.id !== studentId || !assignments.some((a) => a.id === assignmentId && a.status === 'published' && a.classId === student.classId)) {
           return { ok: false, error: 'This assignment is unavailable.' }
         }
         const existing = submissions.find((s) => s.assignmentId === assignmentId && s.studentId === studentId)
@@ -233,7 +302,8 @@ export const useStore = create<AppState>()(
       },
       submitAssignment: (assignmentId, studentId, text, files) => {
         const a = get().assignments.find((x) => x.id === assignmentId)
-        if (!a) return { ok: false, error: 'Assignment not found.' }
+        const student = currentActor(get(), 'student')
+        if (!a || student?.id !== studentId || student.classId !== a.classId) return { ok: false, error: 'Assignment not found.' }
         if (a.status !== 'published') return { ok: false, error: 'This assignment is not published yet.' }
         if (!text.trim() && files.length === 0) return { ok: false, error: 'Add a text response or attach a file before submitting.' }
         const late = new Date() > new Date(a.dueAt)
@@ -259,7 +329,7 @@ export const useStore = create<AppState>()(
         const sub = get().submissions.find((s) => s.id === id)
         if (!sub?.submittedAt || sub.returnedForRevision) return
         const a = get().assignments.find((x) => x.id === sub.assignmentId)
-        if (!a || !Number.isFinite(grade) || grade < 0 || grade > a.maxMarks) return
+        if (!a || a.teacherId !== currentActor(get(), 'teacher')?.id || !Number.isFinite(grade) || grade < 0 || grade > a.maxMarks) return
         set((s) => ({ submissions: s.submissions.map((x) => (x.id === id ? { ...x, grade, feedback, status: 'completed', updatedAt: new Date().toISOString() } : x)) }))
         get().notify({ userId: sub.studentId, type: 'grade', title: `Grade published: ${a?.title ?? 'Assignment'}`, body: `You scored ${grade}/${a?.maxMarks ?? '—'}. Feedback is available.`, link: '/student/submissions' })
         const guardians = get().guardianLinks.filter((g) => g.studentId === sub.studentId && g.status === 'accepted')
@@ -267,7 +337,7 @@ export const useStore = create<AppState>()(
       },
       returnForRevision: (id, feedback) => {
         const sub = get().submissions.find((s) => s.id === id)
-        if (!sub?.submittedAt || sub.returnedForRevision) return
+        if (!sub?.submittedAt || sub.returnedForRevision || !get().assignments.some((a) => a.id === sub.assignmentId && a.teacherId === currentActor(get(), 'teacher')?.id)) return
         set((s) => ({ submissions: s.submissions.map((x) => (x.id === id ? { ...x, feedback, returnedForRevision: true, status: 'in-progress', grade: null, updatedAt: new Date().toISOString() } : x)) }))
         get().notify({ userId: sub.studentId, type: 'feedback', title: 'Work returned for revision', body: feedback, link: '/student/submissions' })
       },
@@ -386,13 +456,15 @@ export const useStore = create<AppState>()(
       markAllRead: (userId) => set((s) => ({ notifications: s.notifications.map((n) => (n.userId === userId ? { ...n, read: true } : n)) })),
       notify: (n) => set((s) => ({ notifications: [{ ...n, id: uid('n'), read: false, createdAt: new Date().toISOString() }, ...s.notifications].slice(0, 200) })),
       createAnnouncement: (classId, teacherId, title, body) => {
+        if (currentActor(get(), 'teacher')?.id !== teacherId || !get().classes.some((item) => item.id === classId && item.teacherId === teacherId) || !title.trim() || !body.trim()) return
         set((s) => ({ announcements: [{ id: uid('an'), classId, teacherId, title, body, createdAt: new Date().toISOString() }, ...s.announcements] }))
         const cls = get().classes.find((c) => c.id === classId)
         cls?.studentIds.forEach((sid) => get().notify({ userId: sid, type: 'announcement', title, body, link: '/student/dashboard' }))
       },
 
       updateAiConfig: (patch) => {
-        set((s) => ({ aiConfig: { ...s.aiConfig, ...patch } }))
+        if (!currentActor(get(), 'admin')) return
+        set((s) => ({ aiConfig: { ...s.aiConfig, ...patch, configured: false } }))
         const userId = get().currentUserId
         if (userId) get().audit(userId, 'ai.config', `AI provider config updated: ${patch.provider ?? get().aiConfig.provider}. No secret was stored in the browser.`)
       },
@@ -413,8 +485,12 @@ export const useStore = create<AppState>()(
         ) }))
       },
       inviteGuardian: (parentEmail, studentId) => {
-        const parent = get().users.find((u) => u.email.toLowerCase() === parentEmail.trim().toLowerCase() && u.role === 'parent')
-        if (!parent) return { ok: false, error: 'No parent account with that email. The guardian must register first.' }
+        const { currentUserId, users, guardianLinks } = get()
+        const student = users.find((user) => user.id === studentId && user.role === 'student')
+        const linked = guardianLinks.some((link) => link.studentId === studentId && link.parentId === currentUserId && link.status === 'accepted')
+        if (!student || (currentUserId !== studentId && !linked && !currentActor(get(), 'admin'))) return { ok: false, error: 'You cannot link a guardian for that student.' }
+        const parent = users.find((u) => u.email.toLowerCase() === parentEmail.trim().toLowerCase() && u.role === 'parent')
+        if (!parent) return { ok: false, error: 'No parent account with that email. Ask an administrator to add the parent account first.' }
         if (get().guardianLinks.some((g) => g.parentId === parent.id && g.studentId === studentId)) return { ok: false, error: 'A guardian link already exists for this parent and student.' }
         set((s) => ({ guardianLinks: [...s.guardianLinks, { id: uid('g'), parentId: parent.id, studentId, status: 'pending', createdAt: new Date().toISOString() }] }))
         get().notify({ userId: parent.id, type: 'announcement', title: 'Guardian link requested', body: `${get().users.find((u) => u.id === studentId)?.name ?? 'A student'} requested to link you as their guardian.`, link: '/parent/children' })
@@ -437,7 +513,7 @@ export const useStore = create<AppState>()(
         return state
       },
       partialize: (s) => ({
-        users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
+        institutionName: s.institutionName, users: s.users, classes: s.classes, assignments: s.assignments, submissions: s.submissions,
         focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
         conversations: s.conversations, studyPlans: s.studyPlans, guardianLinks: s.guardianLinks,
         currentUserId: s.currentUserId, focusLosses: s.focusLosses, aiConfig: s.aiConfig, auditLogs: s.auditLogs,

@@ -371,7 +371,7 @@ export function Register() {
     <PublicLayout>
       <div className="mx-auto max-w-md px-4 py-14">
         <h1 className="font-display text-3xl font-extrabold">Create your student account</h1>
-        <p className="mt-1 text-sm text-slate-500">Students register here. Teacher, parent and admin accounts are created by invitation only — this keeps privileged roles secure.</p>
+        <p className="mt-1 text-sm text-slate-500">Students register here. Ask a demo administrator to add a teacher, parent or admin account.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div><Label htmlFor="register-full">Full name</Label><Input id="register-full" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Aarav Sharma" autoComplete="name" /></div>
           <div><Label htmlFor="register-email">Email</Label><Input id="register-email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></div>

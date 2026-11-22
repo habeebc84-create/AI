@@ -283,7 +283,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
         <Card className="p-6">
           <h2 className="font-display font-bold">Your submission</h2>
           <p className="text-sm text-slate-500">Status: {existing?.status ?? 'not started'}{existing?.submittedAt ? ` · submitted ${fmtDateTime(existing.submittedAt)}` : ''}</p>
-          <div className="mt-4"><Label>Text response</Label><Textarea rows={8} disabled={locked} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
+          <div className="mt-4"><Label htmlFor="submission-response">Text response</Label><Textarea id="submission-response" rows={8} disabled={locked} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
           <div className="mt-4"><Label>Attach files (PDF, DOCX, images, text — max 10 MB each; contents stored on this computer up to 2 MB per file)</Label><Input type="file" disabled={locked} multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
           {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({f.dataUrl ? 'stored on this computer' : 'listed only'})</span></span><button disabled={locked} onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
           {fileNote && <p className="mt-2 text-xs text-slate-500">{fileNote}</p>}
