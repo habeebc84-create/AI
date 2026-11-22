@@ -19,7 +19,11 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
       classId: 'c_10a', teacherId: 'u_priya', dueAt: new Date(Date.now() + 86400000).toISOString(),
       maxMarks: 10, submissionFormat: 'Text response', status: 'draft', latePolicy: 'accept',
     })
+    const notices = () => useStore.getState().notifications.filter((n) => n.userId === 'u_aarav' && n.link === `/student/assignments/${id}`)
+    expect(notices()).toHaveLength(0)
     s.publishAssignment(id)
+    s.publishAssignment(id)
+    expect(notices()).toHaveLength(1)
     expect(useStore.getState().assignments.find((a) => a.id === id)?.status).toBe('published')
     expect(useStore.getState().notifications.some((n) => n.userId === 'u_aarav' && n.title.includes('Fractions'))).toBe(true)
   })
@@ -108,9 +112,27 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
     const sub = useStore.getState().submissions.find((x) => x.assignmentId === 'a_essay' && x.studentId === 'u_aarav')!
     expect(sub.files[0].dataUrl).toBe(dataUrl) // teacher downloads these real bytes
     const huge = 'data:text/plain;base64,' + 'A'.repeat(6_000_000) // ~4.5 MB decoded, over the 4 MB budget
-    const over = s.submitAssignment('a_essay', 'u_aarav', 'Too big.', [{ name: 'huge.txt', size: 4_500_000, type: 'text/plain', dataUrl: huge }])
+    const over = s.submitAssignment('a_hist', 'u_aarav', 'Too big.', [{ name: 'huge.txt', size: 4_500_000, type: 'text/plain', dataUrl: huge }])
     expect(over.ok).toBe(false)
     expect(over.error).toMatch(/local storage/i)
+  })
+
+  it('keeps graded work intact until the teacher returns it for revision', () => {
+    const s = useStore.getState()
+    s.login('aarav@demo.focused.ai', 'demo1234')
+    const graded = useStore.getState().submissions.find((sub) => sub.id === 's_quad')
+    expect(s.saveDraft('a_quad', 'u_aarav', 'Replacement', []).ok).toBe(false)
+    expect(s.submitAssignment('a_quad', 'u_aarav', 'Replacement', []).ok).toBe(false)
+    expect(useStore.getState().submissions.find((sub) => sub.id === 's_quad')).toEqual(graded)
+
+    s.login('priya@demo.focused.ai', 'demo1234')
+    s.returnForRevision('s_quad', 'Show your working.')
+    s.login('aarav@demo.focused.ai', 'demo1234')
+    expect(s.saveDraft('a_quad', 'u_aarav', 'Revised draft', []).ok).toBe(true)
+    expect(s.submitAssignment('a_quad', 'u_aarav', 'Revised answer', []).ok).toBe(true)
+    expect(useStore.getState().submissions.find((sub) => sub.id === 's_quad')).toMatchObject({
+      text: 'Revised answer', grade: null, returnedForRevision: false,
+    })
   })
 
   it('Stale focus sessions count as abandoned, recent ones do not', () => {

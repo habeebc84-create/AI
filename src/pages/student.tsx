@@ -7,7 +7,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
-import { completionRate, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
+import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { SUGGESTED_PROMPTS, generateQuiz, type TutorLevel } from '../lib/ai'
 import { REFERENCE_BOOKS } from '../lib/reference'
 import type { Assignment, User } from '../lib/types'
@@ -199,6 +199,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   if (!a) return <EmptyState title="Assignment not found" body="It may have been removed, or the link is wrong." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
   if (a.status !== 'published') return <EmptyState title="Not published yet" body="Your teacher has not published this assignment." action={<Link to="/student/assignments"><Button>Back to assignments</Button></Link>} />
   const late = new Date() > new Date(a.dueAt)
+  const locked = Boolean(existing?.submittedAt && !existing.returnedForRevision)
   const downloadAttachment = (name: string) => {
     const blob = new Blob([`${a.title}\n${a.subject} · ${a.description}\n\nInstructions:\n${a.instructions}\n\n(Sample file generated from the assignment record.)`], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
@@ -230,7 +231,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   const submit = () => {
     const r = submitAssignment(a.id, user.id, text, files)
     if (!r.ok) { setError(r.error ?? 'Could not submit.'); return }
-    toast(r.late ? 'Submitted late — penalty policy applies.' : 'Assignment submitted successfully!')
+    toast(r.late ? (a.latePolicy === 'accept-penalty' ? 'Submitted late — penalty policy applies.' : 'Assignment submitted late.') : 'Assignment submitted successfully!')
     navigate('/student/submissions')
   }
   const breakIntoTasks = () => {
@@ -240,10 +241,10 @@ function AssignmentDetailForm({ id }: { id?: string }) {
     if (new Date().getHours() >= 20) cursor.setDate(cursor.getDate() + 1)
     const days: string[] = []
     while (cursor <= due && days.length < 7) {
-      days.push(cursor.toISOString().slice(0, 10))
+      days.push(localDateKey(cursor))
       cursor.setDate(cursor.getDate() + 1)
     }
-    if (days.length === 0) days.push(new Date().toISOString().slice(0, 10))
+    if (days.length === 0) days.push(localDateKey(new Date()))
     const blocks = buildStudyPlan([
       { assignmentId: a.id, title: `Read the brief — ${a.title}`, dueAt: a.dueAt, estMinutes: 15 },
       { assignmentId: a.id, title: `Draft — ${a.title}`, dueAt: a.dueAt, estMinutes: a.maxMarks >= 20 ? 50 : 35 },
@@ -278,15 +279,20 @@ function AssignmentDetailForm({ id }: { id?: string }) {
         <Card className="p-6">
           <h2 className="font-display font-bold">Your submission</h2>
           <p className="text-sm text-slate-500">Status: {existing?.status ?? 'not started'}{existing?.submittedAt ? ` · submitted ${fmtDateTime(existing.submittedAt)}` : ''}</p>
-          <div className="mt-4"><Label>Text response</Label><Textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
-          <div className="mt-4"><Label>Attach files (PDF, DOCX, images, text — max 10 MB each; contents stored on this computer up to 2 MB per file)</Label><Input type="file" multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
-          {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({f.dataUrl ? 'stored on this computer' : 'listed only'})</span></span><button onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
+          <div className="mt-4"><Label>Text response</Label><Textarea rows={8} disabled={locked} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
+          <div className="mt-4"><Label>Attach files (PDF, DOCX, images, text — max 10 MB each; contents stored on this computer up to 2 MB per file)</Label><Input type="file" disabled={locked} multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
+          {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({f.dataUrl ? 'stored on this computer' : 'listed only'})</span></span><button disabled={locked} onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
           {fileNote && <p className="mt-2 text-xs text-slate-500">{fileNote}</p>}
           {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30" role="alert">{error}</p>}
           {saved && <p className="mt-3 text-sm text-emerald-600">Draft saved.</p>}
           <div className="mt-4 flex gap-2">
-            <Button variant="outline" onClick={() => { saveDraft(a.id, user.id, text, files); setSaved(true); toast('Draft saved.') }}>Save draft</Button>
-            <Button onClick={submit}><Send className="h-4 w-4" /> Submit</Button>
+            <Button variant="outline" disabled={locked} onClick={() => {
+              const result = saveDraft(a.id, user.id, text, files)
+              setSaved(result.ok)
+              setError(result.error ?? '')
+              if (result.ok) toast('Draft saved.')
+            }}>Save draft</Button>
+            <Button disabled={locked} onClick={submit}><Send className="h-4 w-4" /> Submit</Button>
           </div>
           <p className="mt-3 text-xs text-slate-500">Submitting confirms this is your own work. Late submissions follow the policy shown above.</p>
         </Card>
@@ -390,12 +396,14 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
         <p className="text-sm text-slate-500">Type here while the reference is open. Drafts stay on this computer.</p>
         <div className="mt-3 max-w-3xl">
           <Label htmlFor="focus-answer">{selected ? `Answer for ${selected.title}` : 'Answer'}</Label>
-          <Textarea id="focus-answer" rows={6} value={answer} disabled={!selected} onChange={(e) => setAnswer(e.target.value)}
+          <Textarea id="focus-answer" rows={6} value={answer} disabled={!selected || Boolean(existing?.submittedAt && !existing.returnedForRevision)} onChange={(e) => setAnswer(e.target.value)}
             placeholder={selected ? 'Write your answer, using the reference book above…' : 'Select an assessment first.'} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button disabled={!selected} onClick={() => { if (!selected) return; saveDraft(selected.id, user.id, answer, existing?.files ?? []); toast('Draft saved — it appears under Submissions.') }}>Save draft</Button>
-          {existing?.submittedAt && <span className="text-xs text-slate-500">Already submitted — saving here replaces the draft text.</span>}
+          <Button disabled={!selected || Boolean(existing?.submittedAt && !existing.returnedForRevision)} onClick={() => { if (!selected) return; const result = saveDraft(selected.id, user.id, answer, existing?.files ?? [])
+            if (!result.ok) { toast(result.error ?? 'Could not save draft.', 'error'); return }
+            toast('Draft saved — it appears under Submissions.') }}>Save draft</Button>
+          {existing?.submittedAt && !existing.returnedForRevision && <span className="text-xs text-slate-500">Submitted work can be edited after your teacher returns it for revision.</span>}
         </div>
       </Card>
     </section>
@@ -597,7 +605,10 @@ export function StudyPlanner() {
   const [endHour, setEndHour] = useState(20)
   const generate = () => {
     if (!Number.isInteger(startHour) || !Number.isInteger(endHour) || startHour < 6 || endHour > 23 || endHour <= startHour) { toast('Choose a study window between 06:00 and 23:00, with the end after the start.', 'error'); return }
-    const days = [0, 1, 2, 3, 4, 5, 6].map((d) => new Date(Date.now() + d * 86400000).toISOString().slice(0, 10))
+    const today = new Date()
+    const days = Array.from({ length: 7 }, (_, offset) =>
+      localDateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset)),
+    )
     const tasks = assignments.filter((a) => a.status === 'published' && a.classId === user.classId && !submissions.some((s) => s.assignmentId === a.id && s.studentId === user.id && s.submittedAt && !s.returnedForRevision))
       .map((a) => ({ assignmentId: a.id, title: a.title, dueAt: a.dueAt, estMinutes: 60 }))
     const blocks = buildStudyPlan(tasks, days, startHour * 60, endHour * 60, 10)
@@ -636,7 +647,6 @@ export function StudentCalendar() {
   const firstDow = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
-  const dateKey = (d: number) => `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   const plan = studyPlans.find((p) => p.studentId === user.id)
   return (
     <div>
@@ -647,8 +657,8 @@ export function StudentCalendar() {
         <div className="mt-1 grid grid-cols-7 gap-1">
           {cells.map((d, i) => {
             if (!d) return <div key={i} />
-            const key = dateKey(d)
-            const due = assignments.filter((a) => a.status === 'published' && a.classId === user.classId && a.dueAt.slice(0, 10) === key)
+            const key = localDateKey(new Date(year, month, d))
+            const due = assignments.filter((a) => a.status === 'published' && a.classId === user.classId && localDateKey(new Date(a.dueAt)) === key)
             const blocks = (plan?.items ?? []).filter((it) => it.date === key)
             const isToday = new Date().toDateString() === new Date(year, month, d).toDateString()
             return (

@@ -25,14 +25,14 @@ it('shows the running session and locks other tabs until it is finished', async 
 })
 
 it('lists assessments and lets a focused student type with the reference book open', async () => {
-  state().startFocus('a_quad', 'Quadratic practice', 'custom', 900)
+  state().startFocus('a_photo', 'Write up the lab report', 'custom', 900)
   render(<App />)
   fireEvent.click(await screen.findByText('Return to session'))
-  fireEvent.click(await screen.findByRole('button', { name: /Quadratic Equations — Problem Set 4/ }))
-  expect(screen.getByText('Quadratic equations')).toBeTruthy()
-  fireEvent.change(screen.getByLabelText(/Answer for Quadratic Equations/), { target: { value: 'Using the discriminant first…' } })
+  fireEvent.click(await screen.findByRole('button', { name: /Photosynthesis Lab Report/ }))
+  expect(screen.getByText('Writing a lab report')).toBeTruthy()
+  fireEvent.change(screen.getByLabelText(/Answer for Photosynthesis Lab Report/), { target: { value: 'Identifying the controlled variables…' } })
   fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
-  expect(state().submissions.find((s) => s.assignmentId === 'a_quad' && s.studentId === 'u_aarav')?.text).toBe('Using the discriminant first…')
+  expect(state().submissions.find((s) => s.assignmentId === 'a_photo' && s.studentId === 'u_aarav')?.text).toBe('Identifying the controlled variables…')
 })
 
 it('reconciles hidden time, ignores switches on pause, and stops at the deadline on Home', async () => {

@@ -1,6 +1,8 @@
-import { format, formatDistanceToNow, isPast, differenceInMinutes } from 'date-fns'
+import { format, formatDistanceToNow, isPast, differenceInMinutes, parseISO } from 'date-fns'
 
-export const fmtDate = (iso: string) => format(new Date(iso), 'EEE, d MMM yyyy')
+export const fmtDate = (iso: string) => format(parseISO(iso), 'EEE, d MMM yyyy')
+export const localDateKey = (date: Date) => format(date, 'yyyy-MM-dd')
+export const localDateTimeInput = (date: Date) => format(date, "yyyy-MM-dd'T'HH:mm")
 export const fmtDateTime = (iso: string) => format(new Date(iso), 'd MMM yyyy, h:mm a')
 export const timeAgo = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: true })
 export const isOverdue = (iso: string) => isPast(new Date(iso))

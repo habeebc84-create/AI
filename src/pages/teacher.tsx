@@ -4,7 +4,7 @@ import { BookOpen, Users, ClipboardList, BarChart3, Megaphone, Plus, Send, Downl
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
-import { completionRate, fmtDateTime, validateUploadFile, dataUrlToBlob, type StoredFile } from '../lib/utils'
+import { completionRate, fmtDateTime, localDateTimeInput, validateUploadFile, dataUrlToBlob, type StoredFile } from '../lib/utils'
 import type { Assignment } from '../lib/types'
 
 export function TeacherDashboard() {
@@ -14,18 +14,18 @@ export function TeacherDashboard() {
   const myAssignments = assignments.filter((a) => a.teacherId === user.id)
   const published = myAssignments.filter((a) => a.status === 'published')
   const mySubs = submissions.filter((s) => myAssignments.some((a) => a.id === s.assignmentId))
-  const awaiting = mySubs.filter((s) => s.submittedAt && s.grade === null)
-  const students = myClasses.flatMap((c) => c.studentIds)
+  const awaiting = mySubs.filter((s) => s.submittedAt && !s.returnedForRevision && s.grade === null)
+  const students = new Set(myClasses.flatMap((c) => c.studentIds))
   const trend = published.slice(0, 5).map((a) => {
-    const subs = mySubs.filter((s) => s.assignmentId === a.id && s.submittedAt)
-    return { name: a.title.length > 18 ? a.title.slice(0, 18) + '…' : a.title, submitted: subs.length, total: students.length }
+    const subs = mySubs.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
+    return { name: a.title.length > 18 ? a.title.slice(0, 18) + '…' : a.title, submitted: subs.length, total: myClasses.find((c) => c.id === a.classId)?.studentIds.length ?? 0 }
   })
   return (
     <div>
       <PageHeader title={`Hello, ${user.name}`} sub="Your classes, assignments and grading queue — from real records." action={<Link to="/teacher/assignments/create"><Button><Plus className="h-4 w-4" /> New Assignment</Button></Link>} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Classes', value: String(myClasses.length), sub: `${students.length} students`, icon: Users },
+          { label: 'Classes', value: String(myClasses.length), sub: `${students.size} students`, icon: Users },
           { label: 'Published assignments', value: String(published.length), sub: `${myAssignments.filter((a) => a.status === 'draft').length} drafts`, icon: BookOpen },
           { label: 'Submissions received', value: String(mySubs.filter((s) => s.submittedAt).length), sub: `${awaiting.length} awaiting review`, icon: ClipboardList },
           { label: 'On-time rate', value: `${completionRate(mySubs.filter((s) => s.submittedAt && !s.isLate).length, Math.max(1, mySubs.filter((s) => s.submittedAt).length))}%`, sub: 'Of submitted work', icon: BarChart3 },
@@ -110,7 +110,7 @@ export function TeacherAssignments() {
       <PageHeader title="Assignments" sub="Everything you have created, draft or published." action={<Link to="/teacher/assignments/create"><Button><Plus className="h-4 w-4" /> New Assignment</Button></Link>} />
       {mine.length === 0 ? <EmptyState title="No assignments yet" body="Create your first assignment — it takes a minute." action={<Link to="/teacher/assignments/create"><Button>Create assignment</Button></Link>} /> : (
         <div className="space-y-3">{mine.map((a) => {
-          const subs = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt)
+          const subs = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
           return (
             <Card key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div><Link to={`/teacher/assignments/${a.id}`} className="font-display font-bold hover:text-royal-500">{a.title}</Link><p className="text-sm text-slate-500">{a.subject} · due {fmtDateTime(a.dueAt)} · {a.maxMarks} marks · {subs.length} submissions</p></div>
@@ -132,24 +132,30 @@ export function TeacherAssignmentCreate() {
   const [classId, setClassId] = useState(classes.find((c) => c.teacherId === user.id)?.id ?? '')
   const [description, setDescription] = useState('')
   const [instructions, setInstructions] = useState('')
-  const [dueAt, setDueAt] = useState(() => new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 16))
+  const [dueAt, setDueAt] = useState(() => localDateTimeInput(new Date(Date.now() + 3 * 86400000)))
   const [maxMarks, setMaxMarks] = useState(20)
   const [format, setFormat] = useState('Text response or PDF')
   const [rubric, setRubric] = useState('')
   const [latePolicy, setLatePolicy] = useState<'accept' | 'accept-penalty' | 'reject'>('accept-penalty')
   const [error, setError] = useState('')
   const myClasses = classes.filter((c) => c.teacherId === user.id)
-  const save = (publish: boolean) => (e: FormEvent) => {
+  const save = (e: FormEvent<HTMLFormElement>) => {
+    const publish = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'publish'
     e.preventDefault()
     if (!title.trim() || !classId) { setError('Title and class are required.'); return }
-    const id = createAssignment({ title: title.trim(), description, instructions, subject, classId, teacherId: user.id, dueAt: new Date(dueAt).toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
+    const deadline = new Date(dueAt)
+    if (!Number.isFinite(deadline.getTime()) || !Number.isInteger(maxMarks) || maxMarks < 1 || maxMarks > 100) {
+      setError('Enter a valid deadline and a maximum mark between 1 and 100.')
+      return
+    }
+    const id = createAssignment({ title: title.trim(), description, instructions, subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
     toast(publish ? 'Assignment published — students notified.' : 'Draft saved.')
     navigate(`/teacher/assignments/${id}`)
   }
   return (
     <div>
       <PageHeader title="Create Assignment" sub="Fill in the details. Save as a draft, or publish straight away." />
-      <form className="max-w-2xl space-y-4" onSubmit={save(false)}>
+      <form className="max-w-2xl space-y-4" onSubmit={save}>
         <Card className="space-y-4 p-6">
           <div><Label>Title *</Label><Input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Quadratic Equations — Problem Set 5" /></div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -166,7 +172,7 @@ export function TeacherAssignmentCreate() {
           <div><Label>Rubric (optional)</Label><Textarea rows={2} value={rubric} onChange={(e) => setRubric(e.target.value)} placeholder="How will this be marked?" /></div>
           <div><Label>Late submission policy</Label><Select value={latePolicy} onChange={(e) => setLatePolicy(e.target.value as typeof latePolicy)}><option value="accept">Accept late work</option><option value="accept-penalty">Accept late with penalty</option><option value="reject">Do not accept late work</option></Select></div>
           {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{error}</p>}
-          <div className="flex gap-2"><Button type="submit" variant="outline">Save draft</Button><Button type="button" onClick={save(true)}><Send className="h-4 w-4" /> Publish assignment</Button></div>
+          <div className="flex gap-2"><Button type="submit" variant="outline">Save draft</Button><Button type="submit" value="publish"><Send className="h-4 w-4" /> Publish assignment</Button></div>
         </Card>
       </form>
     </div>
@@ -176,14 +182,14 @@ export function TeacherAssignmentCreate() {
 export function TeacherAssignmentDetail() {
   const { id } = useParams()
   const user = useCurrentUser()!
-  const { assignments, submissions, users, publishAssignment, updateAssignment } = useStore()
+  const { assignments, classes, submissions, users, publishAssignment, updateAssignment } = useStore()
   const a = assignments.find((x) => x.id === id && x.teacherId === user.id)
   const [editing, setEditing] = useState(false)
   const [instructions, setInstructions] = useState('')
   if (!a) return <EmptyState title="Assignment not found" body="It may belong to another teacher." action={<Link to="/teacher/assignments"><Button>Back</Button></Link>} />
-  const subs = submissions.filter((s) => s.assignmentId === a.id)
-  const submitted = subs.filter((s) => s.submittedAt)
-  const graded = subs.filter((s) => s.grade !== null)
+  const submitted = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
+  const graded = submitted.filter((s) => s.grade !== null)
+  const enrolled = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
   return (
     <div>
       <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={() => { publishAssignment(a.id); toast('Assignment published — students notified.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setEditing(true) }}>Edit instructions</Button></div>} />
@@ -193,7 +199,7 @@ export function TeacherAssignmentDetail() {
           <p className="mt-4 whitespace-pre-line">{a.instructions}</p>
           {a.rubric && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm dark:bg-navy-800"><strong>Rubric:</strong> {a.rubric}</p>}
           <h3 className="mt-6 font-display font-bold">Submissions</h3>
-          {subs.length === 0 ? <p className="mt-2 text-sm text-slate-500">No submissions yet.</p> : subs.map((s) => {
+          {submitted.length === 0 ? <p className="mt-2 text-sm text-slate-500">No submissions ready for review.</p> : submitted.map((s) => {
             const st = users.find((u) => u.id === s.studentId)
             return (
               <Link key={s.id} to={`/teacher/submissions/${s.id}`} className="mt-2 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
@@ -205,8 +211,8 @@ export function TeacherAssignmentDetail() {
         </Card>
         <Card className="p-6">
           <h3 className="font-display font-bold">Completion</h3>
-          <p className="mt-2 font-display text-3xl font-extrabold">{completionRate(submitted.length, Math.max(1, subs.length + 1))}%</p>
-          <p className="text-sm text-slate-500">{submitted.length} of {subs.length} students with a record have submitted. On-time: {submitted.filter((s) => !s.isLate).length} · Late: {submitted.filter((s) => s.isLate).length}</p>
+          <p className="mt-2 font-display text-3xl font-extrabold">{completionRate(submitted.length, enrolled)}%</p>
+          <p className="text-sm text-slate-500">{submitted.length} of {enrolled} enrolled students have submitted. On-time: {submitted.filter((s) => !s.isLate).length} · Late: {submitted.filter((s) => s.isLate).length}</p>
           <h3 className="mt-5 font-display font-bold">Late policy</h3>
           <p className="text-sm text-slate-600 dark:text-slate-300">{a.latePolicy === 'accept' ? 'Late work accepted.' : a.latePolicy === 'accept-penalty' ? 'Late work accepted with a penalty.' : 'Late work not accepted.'}</p>
         </Card>
@@ -223,7 +229,7 @@ export function TeacherSubmissions() {
   const user = useCurrentUser()!
   const { assignments, submissions, users } = useStore()
   const mine = assignments.filter((a) => a.teacherId === user.id)
-  const list = submissions.filter((s) => mine.some((a) => a.id === s.assignmentId) && s.submittedAt).sort((a, b) => +new Date(b.submittedAt!) - +new Date(a.submittedAt!))
+  const list = submissions.filter((s) => mine.some((a) => a.id === s.assignmentId) && s.submittedAt && !s.returnedForRevision).sort((a, b) => +new Date(b.submittedAt!) - +new Date(a.submittedAt!))
   return (
     <div>
       <PageHeader title="Submissions" sub="Review, grade and give feedback. Only your classes' work appears here." />
@@ -252,7 +258,7 @@ export function TeacherSubmissionDetail() {
   const [feedback, setFeedback] = useState('')
   const s = submissions.find((x) => x.id === id)
   const a = s ? assignments.find((x) => x.id === s.assignmentId && x.teacherId === user.id) : undefined
-  if (!s || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<Link to="/teacher/submissions"><Button>Back</Button></Link>} />
+  if (!s?.submittedAt || s.returnedForRevision || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<Link to="/teacher/submissions"><Button>Back</Button></Link>} />
   const st = users.find((u) => u.id === s.studentId)
   const downloadFile = (f: StoredFile) => {
     // Files uploaded since local storage was introduced carry their real
@@ -283,7 +289,7 @@ export function TeacherSubmissionDetail() {
           <div className="mt-4"><Label>Grade (0–{a.maxMarks})</Label><Input type="number" min={0} max={a.maxMarks} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={`e.g. ${Math.round(a.maxMarks * 0.85)}`} /></div>
           <div className="mt-4"><Label>Written feedback</Label><Textarea rows={4} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What went well? What should they improve?" /></div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => { const g = Number(grade); if (Number.isNaN(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } gradeSubmission(s.id, g, feedback); toast('Grade published — student and guardian notified.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
+            <Button onClick={() => { const g = Number(grade); if (!grade.trim() || !Number.isFinite(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } gradeSubmission(s.id, g, feedback); toast('Grade published — student and guardian notified.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
             <Button variant="outline" onClick={() => { if (!feedback.trim()) { toast('Add feedback explaining what to revise.', 'error'); return } returnForRevision(s.id, feedback); toast('Returned for revision.'); navigate('/teacher/submissions') }}><RotateCcw className="h-4 w-4" /> Return for revision</Button>
           </div>
         </Card>
@@ -296,7 +302,8 @@ export function TeacherAnalytics() {
   const user = useCurrentUser()!
   const { assignments, submissions, classes } = useStore()
   const mine = assignments.filter((a) => a.teacherId === user.id && a.status === 'published')
-  const subs = submissions.filter((s) => mine.some((a) => a.id === s.assignmentId) && s.submittedAt)
+  const subs = submissions.filter((s) => mine.some((a) => a.id === s.assignmentId) && s.submittedAt && !s.returnedForRevision)
+  const expectedSubmissions = mine.reduce((total, a) => total + (classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0), 0)
   const data = mine.map((a) => {
     const list = subs.filter((s) => s.assignmentId === a.id)
     const total = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
@@ -306,7 +313,7 @@ export function TeacherAnalytics() {
     <div>
       <PageHeader title="Class Analytics" sub="Submission and on-time rates per assignment — from real records." />
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="p-5"><p className="text-sm text-slate-500">Overall submission rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.length, mine.length * 4)}%</p><p className="text-xs text-slate-500">{subs.length} submissions across {mine.length} assignments</p></Card>
+        <Card className="p-5"><p className="text-sm text-slate-500">Overall submission rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.length, expectedSubmissions)}%</p><p className="text-xs text-slate-500">{subs.length} submissions across {mine.length} assignments</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">On-time rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.filter((s) => !s.isLate).length, Math.max(1, subs.length))}%</p><p className="text-xs text-slate-500">{subs.filter((s) => s.isLate).length} late submissions</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">Grading workload</p><p className="mt-1 font-display text-3xl font-extrabold">{subs.filter((s) => s.grade === null).length}</p><p className="text-xs text-slate-500">Submissions awaiting a grade</p></Card>
       </div>

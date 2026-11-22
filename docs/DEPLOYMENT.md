@@ -4,6 +4,17 @@
 connected yet. The steps below are the deployment path, not a record of a
 deployment that happened.
 
+## Frontend on GitHub Pages
+
+In the repository's **Settings → Pages**, select **GitHub Actions** as the
+source. The **GitHub Pages** workflow tests and builds pull requests and
+publishes the demo after changes land on `main`. You can also run the
+workflow manually from the Actions tab.
+
+The project site uses paths such as
+`https://habeebc84-create.github.io/AI/#/login` so direct visits and refreshes
+work on the static host. It runs with browser-local demo data.
+
 ## 1. Frontend (Vercel)
 
 ```bash

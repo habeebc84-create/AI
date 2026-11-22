@@ -24,7 +24,7 @@ export const REFERENCE_BOOKS: ReferenceBook[] = [
   {
     subject: 'Mathematics',
     title: 'Mathematics reference book',
-    file: '/reference/mathematics-formula-sheet.pdf',
+    file: `${import.meta.env.BASE_URL}reference/mathematics-formula-sheet.pdf`,
     summary: 'Quadratic formula, identities, trigonometry and mensuration, on one page.',
     sections: [
       {
@@ -75,7 +75,7 @@ export const REFERENCE_BOOKS: ReferenceBook[] = [
   {
     subject: 'Science',
     title: 'Science reference book',
-    file: '/reference/science-lab-report-guide.pdf',
+    file: `${import.meta.env.BASE_URL}reference/science-lab-report-guide.pdf`,
     summary: 'The six sections of a lab report, plus photosynthesis and variables.',
     sections: [
       {
@@ -113,7 +113,7 @@ export const REFERENCE_BOOKS: ReferenceBook[] = [
   {
     subject: 'English',
     title: 'English reference book',
-    file: '/reference/english-essay-structure.pdf',
+    file: `${import.meta.env.BASE_URL}reference/english-essay-structure.pdf`,
     summary: 'Essay structure, point–evidence–explain paragraphs and quoting well.',
     sections: [
       {
@@ -150,7 +150,7 @@ export const REFERENCE_BOOKS: ReferenceBook[] = [
   {
     subject: 'History',
     title: 'History reference book',
-    file: '/reference/history-source-questions.pdf',
+    file: `${import.meta.env.BASE_URL}reference/history-source-questions.pdf`,
     summary: 'Cause, evidence, source reliability and significance for history answers.',
     sections: [
       {
@@ -173,7 +173,7 @@ export const REFERENCE_BOOKS: ReferenceBook[] = [
   {
     subject: 'Computer Science',
     title: 'Python reference book',
-    file: '/reference/computer-science-python-cheatsheet.pdf',
+    file: `${import.meta.env.BASE_URL}reference/computer-science-python-cheatsheet.pdf`,
     summary: 'Input, loops, lists, dictionaries, functions and common errors.',
     sections: [
       {
