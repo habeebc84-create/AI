@@ -24,7 +24,7 @@ export function TeacherDashboard() {
   })
   return (
     <div>
-      <PageHeader title={`Hello, ${user.name}`} sub="Your classes, assignments and grading queue — from real records." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
+      <PageHeader title={`Hello, ${user.name}`} sub="Class activity and work to review." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Classes', value: String(myClasses.length), sub: `${students.size} students`, icon: Users },
@@ -88,7 +88,7 @@ export function TeacherStudents() {
   const students = users.filter((u) => studentIds.includes(u.id))
   return (
     <div>
-      <PageHeader title="Students" sub="Enrolled students across your classes, with their submission record." />
+      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." />
       <div className="space-y-2">{students.map((s) => {
         const mine = assignments.filter((a) => a.teacherId === user.id)
         const done = submissions.filter((x) => x.studentId === s.id && x.submittedAt && mine.some((a) => a.id === x.assignmentId)).length
@@ -109,7 +109,7 @@ export function TeacherAssignments() {
   const mine = assignments.filter((a) => a.teacherId === user.id)
   return (
     <div>
-      <PageHeader title="Assignments" sub="Everything you have created, draft or published." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
+      <PageHeader title="Assignments" sub="Review your drafts and published assignments." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
       {mine.length === 0 ? <EmptyState title="No assignments yet" body="Create your first assignment — it takes a minute." action={<LinkButton to="/teacher/assignments/create">Create assignment</LinkButton>} /> : (
         <div className="space-y-3">{mine.map((a) => {
           const subs = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
@@ -154,12 +154,12 @@ export function TeacherAssignmentCreate() {
     }
     const id = await runAction('createAssignment', { title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
     if (!id) { setError('Choose a class assigned to your account.'); return }
-    toast(publish ? 'Assignment published — students notified.' : 'Draft saved.')
+    toast(publish ? 'Assignment published.' : 'Draft saved.')
     navigate(`/teacher/assignments/${id}`)
   }
   return (
     <div>
-      <PageHeader title="Create Assignment" sub="Fill in the details. Save as a draft, or publish straight away." />
+      <PageHeader title="Create Assignment" sub="Save a draft or publish it to your class." />
       {!myClasses.length ? <EmptyState title="No classes assigned" body="Ask an administrator to create a class and select your teacher account." /> :
       <form className="max-w-2xl space-y-4" onSubmit={save}>
         <Card className="space-y-4 p-6">
@@ -203,7 +203,7 @@ export function TeacherAssignmentDetail() {
   const enrolled = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
   return (
     <div>
-      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={async () => { if (!await runAction('publishAssignment', a.id)) return; toast('Assignment published — students notified.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setEditing(true) }}>Edit instructions and notes</Button></div>} />
+      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={async () => { if (!await runAction('publishAssignment', a.id)) return; toast('Assignment published.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setEditing(true) }}>Edit instructions and notes</Button></div>} />
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
           <div className="flex gap-2">{statusBadge(a.status)}<Badge color="indigo">{submitted.length} submitted</Badge><Badge color="emerald">{graded.length} graded</Badge></div>
@@ -246,7 +246,7 @@ export function TeacherSubmissions() {
   const list = submissions.filter((s) => mine.some((a) => a.id === s.assignmentId) && s.submittedAt && !s.returnedForRevision).sort((a, b) => +new Date(b.submittedAt!) - +new Date(a.submittedAt!))
   return (
     <div>
-      <PageHeader title="Submissions" sub="Review, grade and give feedback. Only your classes' work appears here." />
+      <PageHeader title="Submissions" sub="Review student work and give feedback." />
       {list.length === 0 ? <EmptyState title="No submissions yet" body="When students submit, their work appears here for review." /> : (
         <div className="space-y-3">{list.map((s) => {
           const a = mine.find((x) => x.id === s.assignmentId)
@@ -310,7 +310,7 @@ export function TeacherSubmissionDetail() {
           <div className="mt-4"><Label htmlFor="grade-score">Grade (0–{a.maxMarks})</Label><Input id="grade-score" type="number" min={0} max={a.maxMarks} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={`e.g. ${Math.round(a.maxMarks * 0.85)}`} /></div>
           <div className="mt-4"><Label htmlFor="grade-feedback">Written feedback</Label><Textarea id="grade-feedback" rows={4} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What went well? What should they improve?" /></div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={async () => { const g = Number(grade); if (!grade.trim() || !Number.isFinite(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } if (!await runAction('gradeSubmission', s.id, g, feedback)) return; toast('Grade published — student and guardian notified.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
+            <Button onClick={async () => { const g = Number(grade); if (!grade.trim() || !Number.isFinite(g) || g < 0 || g > a.maxMarks) { toast('Enter a grade between 0 and ' + a.maxMarks + '.', 'error'); return } if (!await runAction('gradeSubmission', s.id, g, feedback)) return; toast('Grade published.'); navigate('/teacher/submissions') }}><CheckCircle2 className="h-4 w-4" /> Publish grade</Button>
             <Button variant="outline" onClick={async () => { if (!feedback.trim()) { toast('Add feedback explaining what to revise.', 'error'); return } if (!await runAction('returnForRevision', s.id, feedback)) return; toast('Returned for revision.'); navigate('/teacher/submissions') }}><RotateCcw className="h-4 w-4" /> Return for revision</Button>
           </div>
         </Card>
@@ -332,7 +332,7 @@ export function TeacherAnalytics() {
   })
   return (
     <div>
-      <PageHeader title="Class Analytics" sub="Submission and on-time rates per assignment — from real records." />
+      <PageHeader title="Class Analytics" sub="Submission and on-time rates by assignment." />
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-5"><p className="text-sm text-slate-500">Overall submission rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.length, expectedSubmissions)}%</p><p className="text-xs text-slate-500">{subs.length} submissions across {mine.length} assignments</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">On-time rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.filter((s) => !s.isLate).length, Math.max(1, subs.length))}%</p><p className="text-xs text-slate-500">{subs.filter((s) => s.isLate).length} late submissions</p></Card>
@@ -356,7 +356,7 @@ export function TeacherAnnouncements() {
   const submit = (e: FormEvent) => { e.preventDefault(); if (!title.trim() || !classId) return; createAnnouncement(classId, user.id, title, body); setTitle(''); setBody(''); toast('Announcement sent to the class.') }
   return (
     <div>
-      <PageHeader title="Announcements" sub="Send a message to a whole class. Students are notified." />
+      <PageHeader title="Announcements" sub="Post a message for your class." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-6">
           <h2 className="font-display font-bold">New announcement</h2>
@@ -398,7 +398,7 @@ export function TeacherProfile() {
 export function TeacherSettings() {
   return (
     <div>
-      <PageHeader title="Settings" sub="Teacher preferences." />
+      <PageHeader title="Settings" sub="Manage your teacher workspace." />
       <Card className="max-w-lg p-6">
         <h2 className="font-display font-bold">Grading & notifications</h2>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">You are notified for every new submission in your classes. Grade notifications to students and guardians are sent automatically when you publish a grade.</p>

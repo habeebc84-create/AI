@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Select, Badge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
-import type { AiProviderConfig, Role } from '../lib/types'
+import type { Role } from '../lib/types'
 
 export function AdminDashboard() {
   const { users, classes, assignments, submissions, focusSessions, institutionName } = useStore()
@@ -20,7 +20,7 @@ export function AdminDashboard() {
           { label: 'Users', value: String(users.length), sub: `${plural(byRole('student'), 'student')} · ${plural(byRole('teacher'), 'teacher')} · ${plural(byRole('parent'), 'parent')} · ${plural(byRole('admin'), 'admin')}`, icon: Users },
           { label: 'Classes', value: String(classes.length), sub: 'Across all grades', icon: BookOpen },
           { label: 'Assignments', value: String(assignments.length), sub: `${assignments.filter((a) => a.status === 'published').length} published`, icon: FileText },
-          { label: 'Focus sessions', value: String(focusSessions.length), sub: 'Completed sessions (demo)', icon: BarChart3 },
+          { label: 'Focus sessions', value: String(focusSessions.length), sub: 'Completed sessions', icon: BarChart3 },
         ].map((s) => (
           <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-5 w-5 text-royal-500" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
         ))}
@@ -33,7 +33,6 @@ export function AdminDashboard() {
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {DEMO_MODE ? 'File storage: up to 2 MB per file, 3 MB total' : 'Up to three attachments per submission, 2 MB per file'}</li>
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {submissions.filter((s) => s.submittedAt).length} submissions stored · {focusSessions.length} focus sessions stored</li>
           </ul>
-          <Link to="/admin/ai-settings" className="mt-4 inline-block text-sm font-semibold text-royal-500 hover:underline">Configure AI provider →</Link>
         </Card>
         <Card className="p-5">
           <h2 className="font-display font-bold">Completion by class</h2>
@@ -143,7 +142,7 @@ export function AdminAssignments() {
   const { assignments, submissions, users } = useStore()
   return (
     <div>
-      <PageHeader title="Assignment Oversight" sub="Every assignment in the institution, with submission counts." />
+      <PageHeader title="Assignment Oversight" sub="Published assignments, drafts and submission counts." />
       <div className="space-y-3">{assignments.map((a) => (
         <Card key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div><p className="font-display font-bold">{a.title}</p><p className="text-sm text-slate-500">{a.subject} · {users.find((u) => u.id === a.teacherId)?.name} · due {fmtDateTime(a.dueAt)}</p></div>
@@ -166,7 +165,7 @@ export function AdminAnalytics() {
   const expected = data.reduce((total, item) => total + item.expected, 0)
   return (
     <div>
-      <PageHeader title="System Analytics" sub="Institution-wide trends from real records." />
+      <PageHeader title="System Analytics" sub="Submission rates, focus sessions and accounts." />
       <div className="grid gap-4 sm:grid-cols-4">
         <Card className="p-5"><p className="text-sm text-slate-500">Completion rate</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.length, expected)}%</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">On-time submissions</p><p className="mt-1 font-display text-3xl font-extrabold">{completionRate(subs.filter((s) => !s.isLate).length, Math.max(1, subs.length))}%</p></Card>
@@ -179,50 +178,13 @@ export function AdminAnalytics() {
 }
 
 export function AdminAiSettings() {
-  const { aiConfig, updateAiConfig } = useStore()
-  const [provider, setProvider] = useState<AiProviderConfig['provider']>(aiConfig.provider)
-  const [model, setModel] = useState(aiConfig.model)
-  const [endpoint, setEndpoint] = useState(aiConfig.endpoint)
-  const [maxTokens, setMaxTokens] = useState(aiConfig.maxTokens)
-  const [temperature, setTemperature] = useState(aiConfig.temperature)
-  const [timeoutMs, setTimeoutMs] = useState(aiConfig.timeoutMs)
-  const [dailyLimit, setDailyLimit] = useState(aiConfig.dailyLimit)
-  const save = (e: FormEvent) => {
-    e.preventDefault()
-    updateAiConfig({ provider, model: model.trim(), endpoint: endpoint.trim(), maxTokens, temperature, timeoutMs, dailyLimit })
-    toast('Provider preferences saved. The tutor uses the built-in reference books.')
-  }
   return (
     <div>
-      <PageHeader title="AI Settings" sub="Save provider preferences for this demo. The tutor uses built-in reference books." />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-6">
-          <h2 className="font-display font-bold">Provider configuration</h2>
-          <form onSubmit={save} className="mt-4 space-y-4">
-            <div><Label>Provider</Label><Select value={provider} onChange={(e) => setProvider(e.target.value as AiProviderConfig['provider'])}><option value="none">None — demo hints</option><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic</option><option value="openrouter">OpenRouter</option><option value="groq">Groq</option><option value="custom">Custom OpenAI-compatible</option></Select></div>
-            <div><Label>Model</Label><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. gpt-4o-mini" /></div>
-            <div><Label>Endpoint (custom providers only)</Label><Input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://api.example.com/v1" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Max output tokens</Label><Input type="number" value={maxTokens} onChange={(e) => setMaxTokens(Number(e.target.value))} /></div>
-              <div><Label>Timeout (ms)</Label><Input type="number" value={timeoutMs} onChange={(e) => setTimeoutMs(Number(e.target.value))} /></div>
-              <div><Label>Temperature</Label><Input type="number" step="0.1" min={0} max={2} value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} /></div>
-              <div><Label>Daily limit (requests)</Label><Input type="number" value={dailyLimit} onChange={(e) => setDailyLimit(Number(e.target.value))} /></div>
-            </div>
-            <Button type="submit">Save AI configuration</Button>
-          </form>
-        </Card>
-        <Card className="p-6">
-          <h2 className="font-display font-bold">Current status</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li>Provider: <strong>{aiConfig.provider}</strong></li>
-            <li>Model: <strong>{aiConfig.model || '—'}</strong></li>
-            <li>Status: <Badge color="indigo">Built-in reference tutor</Badge></li>
-            <li>Daily limit: {aiConfig.dailyLimit} requests · Timeout: {aiConfig.timeoutMs} ms · Max tokens: {aiConfig.maxTokens}</li>
-          </ul>
-          <h3 className="mt-5 font-display font-bold">How the tutor behaves</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Tutor responses use the reference books included with this app. Saved provider preferences do not connect a service.</p>
-        </Card>
-      </div>
+      <PageHeader title="AI Tutor" />
+      <Card className="max-w-xl p-5">
+        <p>The tutor uses reference books included with FocusEd AI.</p>
+        <Link to="/admin/dashboard" className="mt-3 inline-block font-semibold text-royal-500 underline">Back to dashboard</Link>
+      </Card>
     </div>
   )
 }
@@ -243,10 +205,9 @@ export function AdminSecurity() {
         )}
         <h3 className="mt-6 font-display font-bold">Protections in place</h3>
         <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-slate-600 dark:text-slate-300">
-          <li>Each workspace checks the signed-in demo role. Administrators add accounts.</li>
+          <li>Administrators create accounts and assign roles.</li>
           <li>{DEMO_MODE ? 'Demo data stays in the browser profile.' : 'The host laptop validates sessions and workspace access.'}</li>
           <li>File uploads validated by type and size; downloads are ownership-checked.</li>
-          <li>AI keys held server-side only; the browser never receives a secret.</li>
           <li>No webcam, microphone or screen-recording capability exists in this application.</li>
         </ul>
       </Card>
@@ -280,7 +241,7 @@ export function AdminAuditLogs() {
   const { auditLogs, users } = useStore()
   return (
     <div>
-      <PageHeader title="Audit Logs" sub="Every recorded administrative and authentication event." />
+      <PageHeader title="Audit Logs" sub="Sign-ins, account changes and other recorded actions." />
       <Card className="p-6">
         {auditLogs.length === 0 ? <EmptyState title="No audit events yet" body="Actions such as sign-ins, assignment publishing and role changes are recorded here." /> : (
           <div className="overflow-x-auto"><table className="w-full text-left text-sm">

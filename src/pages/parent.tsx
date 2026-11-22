@@ -22,9 +22,9 @@ export function ParentDashboard() {
   const unread = notifications.filter((n) => n.userId === user.id && !n.read)
   return (
     <div>
-      <PageHeader title={`Hello, ${user.name}`} sub="Progress for your linked children only — never other students." />
+      <PageHeader title={`Hello, ${user.name}`} sub="Assignments and grades for your linked children." />
       {children.length === 0 ? (
-        <EmptyState title="No children linked yet" body="A guardian link is created by invitation. Ask your child's school or teacher to send one, or link from the Children page once an invitation exists." action={<LinkButton to="/parent/children">Go to My Children</LinkButton>} />
+        <EmptyState title="No children linked yet" body="Ask your child to request a guardian link in Focus Mode. Accept the request under My Children." action={<LinkButton to="/parent/children">Go to My Children</LinkButton>} />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -43,14 +43,10 @@ export function ParentDashboard() {
           </div>
           <Card className="mt-4 p-5">
             <h2 className="font-display font-bold">Recent updates</h2>
-            {unread.length === 0 ? <p className="mt-2 text-sm text-slate-500">No unread updates. Grades, feedback and deadlines for your children will appear here.</p> : unread.slice(0, 5).map((n) => (<p key={n.id} className="mt-2 text-sm"><span className="font-semibold">{n.title}</span> — <span className="text-slate-500">{n.body}</span></p>))}
+            {unread.length === 0 ? <p className="mt-2 text-sm text-slate-500">No unread updates.</p> : unread.slice(0, 5).map((n) => (<p key={n.id} className="mt-2 text-sm"><span className="font-semibold">{n.title}</span> — <span className="text-slate-500">{n.body}</span></p>))}
           </Card>
         </>
       )}
-      <Card className="mt-4 p-5">
-        <h2 className="font-display font-bold">What you can — and cannot — see</h2>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">You can see linked children's assignments, submission status, grades and deadlines. You cannot see AI Tutor chat transcripts, private focus reflections, or any other student's records. That is by design.</p>
-      </Card>
     </div>
   )
 }
@@ -75,7 +71,7 @@ export function ParentChildren() {
         const s = users.find((u) => u.id === g.studentId)
         return <Card key={g.id} className="mb-3 p-5"><p className="font-semibold">Link request pending: {s?.name}</p><p className="text-sm text-slate-500">Requested {fmtDateTime(g.createdAt)}. Accept the request if this is your child.</p><Button className="mt-3" onClick={() => acceptGuardian(g.id)}>Accept guardian link</Button></Card>
       })}
-      {children.length === 0 && pending.length === 0 && <EmptyState title="No linked children" body="Guardian links require a secure invitation from the school. Once the school creates one for your email, it will appear here." />}
+      {children.length === 0 && pending.length === 0 && <EmptyState title="No linked children" body="Ask your child to send a guardian request from Focus Mode." />}
     </div>
   )
 }
@@ -87,7 +83,7 @@ export function ParentAssignments() {
   const list = children.flatMap((child) => assignments.filter((a) => a.status === 'published' && a.classId === child.classId).map((a) => ({ child, a })))
   return (
     <div>
-      <PageHeader title="Assignments" sub="Assignments for your linked children, with submission status." />
+      <PageHeader title="Assignments" sub="Due dates and submission status for each child." />
       {list.length === 0 ? <EmptyState title="No assignments to show" body="When your child's teacher publishes work, it will appear here." /> : (
         <div className="space-y-3">{list.map(({ a, child }) => {
           const sub = submissions.find((s) => s.assignmentId === a.id && s.studentId === child?.id)
@@ -159,9 +155,9 @@ export function ParentReports() {
   }
   return (
     <div>
-      <PageHeader title="Reports" sub="Download an authorised progress report for your linked children." action={<Button onClick={downloadCsv} disabled={children.length === 0}><Download className="h-4 w-4" /> Download CSV report</Button>} />
+      <PageHeader title="Reports" sub="Export assignments and grades for your linked children." action={<Button onClick={downloadCsv} disabled={children.length === 0}><Download className="h-4 w-4" /> Download CSV report</Button>} />
       <Card className="p-6">
-        <p className="text-slate-600 dark:text-slate-300">The report contains only data you are authorised to see: assignment titles, subjects, due dates, submission status and grades for your linked children. It never includes AI chat transcripts, focus reflections, or other students' records.</p>
+        <p className="text-slate-600 dark:text-slate-300">The CSV includes assignment titles, subjects, due dates, submission status and grades.</p>
         {children.length === 0 && <p className="mt-3 text-sm text-slate-500">No children linked — there is nothing to report yet.</p>}
       </Card>
     </div>

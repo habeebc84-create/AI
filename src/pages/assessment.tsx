@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Award, BookOpen, ClipboardCheck, FileText, TrendingUp, Users } from 'lucide-react'
+import { Award, BookOpen, ClipboardCheck, TrendingUp, Users } from 'lucide-react'
 import { useStore, useCurrentUser } from '../lib/store'
 import { Badge, Card, EmptyState, PageHeader, statusBadge } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
@@ -209,14 +209,7 @@ export default function AssessmentPage() {
     <div>
       <PageHeader
         title={user.role === 'student' ? 'My Assessments' : user.role === 'admin' ? 'Institution Assessments' : 'Assessments'}
-        sub={user.role === 'student'
-          ? 'Graded results for your class, plus reference PDFs for revision.'
-          : user.role === 'teacher'
-            ? 'Grading progress across your assessments, plus reference PDFs to share with your classes.'
-            : user.role === 'parent'
-              ? 'Assessment results for your linked children only — never other students.'
-              : 'Every assessment in the institution with grading progress and reference material.'}
-        action={<span className="inline-flex items-center gap-2 rounded-xl bg-royal-500/10 px-3 py-2 text-sm font-semibold text-royal-600 dark:text-royal-400"><FileText className="h-4 w-4" /> {user.role === 'student' ? 'Results & revision' : 'Results & references'}</span>}
+        sub={user.role === 'student' ? 'Grades and reference PDFs.' : user.role === 'parent' ? 'Results for your linked children.' : 'Grading progress and reference PDFs.'}
       />
       {user.role === 'student' && <StudentResults user={user} />}
       {user.role === 'teacher' && <TeacherResults user={user} />}

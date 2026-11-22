@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { act, render, screen, within, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../src/App'
 import { useStore } from '../src/lib/store'
@@ -8,14 +8,14 @@ import { Landing } from '../src/pages/public'
 describe('app smoke test', () => {
   it('landing page renders the hero headline', () => {
     render(<MemoryRouter><Landing /></MemoryRouter>)
-    expect(screen.getByText(/Your Homework\./)).toBeTruthy()
-    expect(screen.getAllByText(/Get Started Free/).length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByRole('heading', { name: 'Homework and study planning' })).toBeTruthy()
+    expect(screen.getAllByRole('link', { name: 'Log in' }).some((link) => link.getAttribute('href') === '/login')).toBe(true)
   })
 
-  it('offers the COCO study resource without requiring a login', () => {
+  it('keeps the landing page focused on coursework', () => {
     render(<MemoryRouter><Landing /></MemoryRouter>)
-    const guide = within(screen.getByRole('region', { name: /MS COCO/ }))
-    expect(guide.getByRole('link', { name: /Download MS COCO/ }).getAttribute('href')).toBe('https://cocodataset.org/#download')
+    expect(screen.getByRole('heading', { name: 'Assignments' })).toBeTruthy()
+    expect(screen.queryByText(/MS COCO/)).toBeNull()
   })
 
   it('keeps the page and theme switch usable when storage is blocked', () => {
@@ -31,7 +31,7 @@ describe('app smoke test', () => {
 
   it('the full app mounts at /', () => {
     render(<App />)
-    expect(screen.getByText(/Your Homework\./)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Homework and study planning' })).toBeTruthy()
   })
 })
 

@@ -82,7 +82,6 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
     { to: '/admin/assignments', label: 'Assignments', icon: BookOpen },
     { to: '/admin/assessments', label: 'Assessments', icon: ClipboardCheck },
     { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-    { to: '/admin/ai-settings', label: 'AI Settings', icon: Bot },
     { to: '/admin/security', label: 'Security', icon: Shield },
     { to: '/admin/system-settings', label: 'System Settings', icon: Settings },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: FileText },
@@ -287,41 +286,34 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   const { dark, toggle } = useTheme()
   const [expanded, setExpanded] = useState(false)
   const { pathname } = useLocation()
+  const user = useCurrentUser()
+  const links = [['/features', 'Features'], ['/how-it-works', 'How it works'], ['/about', 'About'], ['/contact', 'Help']]
   return (
-    <div className="min-h-screen bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
+    <div className="flex min-h-screen flex-col bg-mist text-slate-900 dark:bg-navy-950 dark:text-slate-100">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-navy-900">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
           <Logo />
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex" aria-label="Public navigation">
-            <Link className="hover:text-royal-500" to="/features">Features</Link>
-            <Link className="hover:text-royal-500" to="/how-it-works">How It Works</Link>
-            <Link className="hover:text-royal-500" to="/about">About</Link>
-            <Link className="hover:text-royal-500" to="/contact">Contact</Link>
+            {links.map(([path, label]) => <NavLink key={path} className="hover:text-royal-500" to={path}>{label}</NavLink>)}
           </nav>
           <div className="flex items-center gap-2">
             <button onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800">{dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
-            <Link to="/login" className="rounded-xl px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-navy-800">Log in</Link>
-            <Link to="/register" className="hidden rounded-xl bg-royal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 sm:inline-flex">Get Started Free</Link>
+            <Link to={user ? '/app' : '/login'} className="rounded-xl px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-navy-800">{user ? 'Workspace' : 'Log in'}</Link>
             <button type="button" className="rounded-lg p-2 md:hidden" aria-label={expanded ? 'Close public menu' : 'Open public menu'} aria-expanded={expanded} aria-controls="mobile-public-navigation" onClick={() => setExpanded(!expanded)}>{expanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
           </div>
         </div>
         <nav id="mobile-public-navigation" hidden={!expanded} aria-label="Mobile public navigation" className="px-3 pb-3 md:hidden">
-          {[
-            ['/features', 'Features'], ['/how-it-works', 'How It Works'], ['/about', 'About'], ['/contact', 'Contact'], ['/register', 'Create account'],
-          ].map(([path, label]) => <NavLink key={path} to={path} onClick={() => setExpanded(false)}
+          {links.map(([path, label]) => <NavLink key={path} to={path} onClick={() => setExpanded(false)}
             className="block rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-navy-800">{label}</NavLink>)}
         </nav>
       </header>
       <StorageWarning />
-      <main key={pathname} className="workspace-enter">{children}</main>
+      <main key={pathname} className="workspace-enter flex-1">{children}</main>
       <footer className="border-t border-slate-200 bg-white dark:border-slate-700 dark:bg-navy-900">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
-          <div><Logo /><p className="mt-3 text-sm text-slate-500">Learn Smarter. Stay Focused. Achieve More.</p></div>
-          <div><p className="font-display font-bold">Product</p><ul className="mt-3 space-y-2 text-sm text-slate-500"><li><Link to="/features">Features</Link></li><li><Link to="/how-it-works">How It Works</Link></li><li><Link to="/about">About</Link></li></ul></div>
-          <div><p className="font-display font-bold">Support</p><ul className="mt-3 space-y-2 text-sm text-slate-500"><li><Link to="/contact">Contact</Link></li><li><Link to="/privacy">Privacy Policy</Link></li><li><Link to="/terms">Terms</Link></li></ul></div>
-          <div><p className="font-display font-bold">Get started</p><ul className="mt-3 space-y-2 text-sm text-slate-500"><li><Link to="/login">Log in</Link></li><li><Link to="/register">Register</Link></li></ul></div>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm text-slate-600 dark:text-slate-300">
+          <span>© 2026 FocusEd AI</span>
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2"><Link to="/contact">Help</Link><Link to="/privacy">Privacy</Link><Link to="/terms">Terms of use</Link></nav>
         </div>
-        <div className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-500 dark:border-slate-700">© 2026 FocusEd AI — Capstone demonstration project. AI supports understanding; it never replaces independent learning.</div>
       </footer>
       <Toaster />
     </div>
