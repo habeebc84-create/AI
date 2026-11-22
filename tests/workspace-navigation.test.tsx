@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { SearchOverlay } from '../src/components/layout'
 import { useStore, DEMO_PASSWORD } from '../src/lib/store'
-import { StudentAssignmentDetail } from '../src/pages/student'
+import { AiTutor, StudentAssignmentDetail } from '../src/pages/student'
 
 function Location() {
   return <output>{useLocation().pathname}</output>
@@ -53,4 +53,18 @@ it('opens a role-specific workspace page from search with Enter', () => {
   expect(screen.getByRole('button', { name: /announcements/i })).toBeTruthy()
   fireEvent.submit(input.closest('form')!)
   expect(screen.getByText('/teacher/announcements')).toBeTruthy()
+})
+
+it('opens an empty tutor chat without removing saved conversations', async () => {
+  const state = useStore.getState
+  state().login('aarav@demo.focused.ai', DEMO_PASSWORD)
+  const previous = state().conversations.length
+  expect(previous).toBeGreaterThan(0)
+  render(<MemoryRouter><AiTutor /></MemoryRouter>)
+  fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
+  expect(screen.getByText('Ask a homework question')).toBeTruthy()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Ask the AI tutor' }), { target: { value: 'How do I factorise?' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Ask', exact: true }))
+  expect(await screen.findByText(/Source: Mathematics reference book/)).toBeTruthy()
+  expect(state().conversations).toHaveLength(previous + 1)
 })

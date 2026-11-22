@@ -39,7 +39,7 @@ export function generateTutorReply(question: string, assignmentTitle = '', subje
   const reference = findReferenceSection(subject, hay)
   if (reference) {
     const { book, section } = reference
-    const note = `Taken from the built-in ${book.title}, not from ChatGPT or any external AI. The tutor guides you; your work stays your own.`
+    const note = `Source: ${book.title}.`
     if (level === 'explain') {
       return {
         heading: `${book.title}: ${section.heading} — explained`,
@@ -75,7 +75,7 @@ export function generateTutorReply(question: string, assignmentTitle = '', subje
   }
   return {
     ...FALLBACK,
-    note: 'No reference page matched this question, so these are general study steps. Answers come only from the built-in reference books — never ChatGPT or an external AI.',
+    note: 'No matching reference page was found. Try a more specific question.',
   }
 }
 
@@ -87,11 +87,3 @@ export function generateQuiz(subject: string, topic: string): string[] {
     `What is a common mistake students make with ${t}, and how would you avoid it?`,
   ]
 }
-
-export const SUGGESTED_PROMPTS = [
-  'Explain this in simple language',
-  'Give me a hint, not the answer',
-  'Walk me through the first step',
-  'Quiz me on this topic',
-  'How do I check my answer?',
-]

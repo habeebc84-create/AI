@@ -11,7 +11,7 @@ import { PdfPreview } from '../components/pdf-preview'
 import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
-import { SUGGESTED_PROMPTS, generateQuiz, type TutorLevel } from '../lib/ai'
+import { generateQuiz, type TutorLevel } from '../lib/ai'
 import { REFERENCE_BOOKS } from '../lib/reference'
 import type { Assignment, User } from '../lib/types'
 
@@ -92,7 +92,7 @@ export function StudentDashboard() {
         <Card className="mb-4 border-royal-400/60 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-royal-500">Next best step</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-royal-500">Next assignment</p>
               <h2 className="mt-1 font-display text-lg font-bold">{nextUp.title}</h2>
               <p className="text-sm text-slate-500">{nextUp.subject} · due {fmtDateTime(nextUp.dueAt)} · {nextUp.maxMarks} marks{minsUntil(nextUp.dueAt) < 0 ? ' · overdue' : minsUntil(nextUp.dueAt) <= 48 * 60 ? ' · due soon' : ''}</p>
             </div>
@@ -318,7 +318,7 @@ export function StudentSubmissions() {
   const mine = submissions.filter((s) => s.studentId === user.id)
   return (
     <div>
-      <PageHeader title="My Submissions" sub="Every submission, its status, grade and feedback." />
+      <PageHeader title="My Submissions" sub="Grades, feedback and revision requests." />
       {mine.length === 0 ? <EmptyState title="No submissions yet" body="Submit an assignment and it will appear here with its status and feedback." action={<LinkButton to="/student/assignments">View assignments</LinkButton>} /> : (
         <div className="space-y-3">{mine.map((s) => {
           const a = assignments.find((x) => x.id === s.assignmentId)
@@ -356,7 +356,7 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
             <h2 id="focus-assessments-title" className="font-display text-lg font-bold">Assessments</h2>
             <Badge color="indigo">{published.length} published</Badge>
           </div>
-          <p className="text-sm text-slate-500">Every published assessment for your class — open one here without leaving Focus Mode.</p>
+          <p className="text-sm text-slate-500">Select an assessment to open its instructions and references.</p>
           <div className="mt-3 max-h-56 space-y-2 overflow-auto pr-1">
             {published.map((a) => {
               const sub = submissions.find((s) => s.assignmentId === a.id && s.studentId === user.id)
@@ -403,7 +403,7 @@ function FocusAssessmentWorkspace({ user }: { user: User }) {
       </div>
       <Card className="mt-4 p-5">
         <h2 className="font-display text-lg font-bold">Your answer</h2>
-        <p className="text-sm text-slate-500">{DEMO_MODE ? 'Type here while the reference is open. Drafts stay in this browser.' : 'Type here while the reference is open. Drafts are saved on the host laptop.'}</p>
+        <p className="text-sm text-slate-500">{DEMO_MODE ? 'Write your answer while you read. Drafts stay in this browser.' : 'Write your answer while you read. Drafts are saved on the host laptop.'}</p>
         <div className="mt-3 max-w-3xl">
           <Label htmlFor="focus-answer">{selected ? `Answer for ${selected.title}` : 'Answer'}</Label>
           <Textarea id="focus-answer" rows={6} value={answer} disabled={!selected || Boolean(existing?.submittedAt && !existing.returnedForRevision)} onChange={(e) => setAnswer(e.target.value)}
@@ -466,7 +466,7 @@ export function FocusPage() {
   const sessionEvents = af ? focusEvents.filter((e) => e.sessionId === af.sessionId) : []
   return (
     <div>
-      <PageHeader title="Focus Mode" sub="Leaving this tab during an active timer counts as a focus loss. Five losses lock your login until your linked parent unlocks it." />
+      <PageHeader title="Focus Mode" sub="During a running timer, leaving this tab counts as one focus loss. Five losses lock your login until a linked parent unlocks it." />
       <p className="mb-4 text-sm font-semibold">Focus losses since last unlock: {losses}/{FOCUS_LOSS_LIMIT}</p>
       {!parentLinked && !af && <Card className="mb-4 p-5">
         <h2 className="font-display font-bold">Link a parent to start Focus Mode</h2>
@@ -556,17 +556,17 @@ export function AiTutor() {
   const user = useCurrentUser()!
   const { assignments, conversations } = useStore()
   const [params] = useSearchParams()
-  const [convId, setConvId] = useState<string | null>(null)
+  const [convId, setConvId] = useState<string | null>()
   const [assignmentId, setAssignmentId] = useState(params.get('assignment') ?? '')
   const [question, setQuestion] = useState('')
   const [lastQuestion, setLastQuestion] = useState('')
   const [quiz, setQuiz] = useState<string[]>([])
-  const conv = conversations.find((c) => c.id === convId) ?? conversations.filter((c) => c.studentId === user.id)[0]
+  const conv = convId === undefined ? conversations.find((c) => c.studentId === user.id) : conversations.find((c) => c.id === convId && c.studentId === user.id)
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }) }, [conv?.messages.length])
   const ask = async (q: string, level: TutorLevel = 'hint') => {
     if (!q.trim()) return
-    const id = await runAction('sendTutorMessage', convId, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q, level)
+    const id = await runAction('sendTutorMessage', conv?.id ?? null, assignmentId || null, assignments.find((a) => a.id === assignmentId)?.subject ?? 'General', q, level)
     if (!id) return
     setConvId(id); setLastQuestion(q); setQuestion('')
   }
@@ -574,36 +574,34 @@ export function AiTutor() {
   const assignment = assignments.find((a) => a.id === assignmentId)
   return (
     <div>
-      <PageHeader title="AI Tutor" sub="Guided hints and step-by-step reasoning. The tutor teaches — it does not write your homework for you." />
-      <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" role="note">
-        <strong>Reference-book tutor.</strong> Every answer is taken from your built-in reference books (Mathematics, Science, English, Computer Science) —
-        no ChatGPT or external AI is used. <Link to="/student/assessments" className="underline">Open the reference PDFs</Link> on the Assessment tab.
+      <PageHeader title="AI Tutor" sub="Ask for a hint, explanation or practice question." />
+      <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+        The tutor uses the built-in reference books. <Link to="/student/assessments" className="font-semibold text-royal-600 underline dark:text-royal-400">View reference PDFs</Link>
       </p>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="flex h-[560px] flex-col p-5 lg:col-span-2">
           <div className="mb-3 flex flex-wrap gap-2">
-            <Select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)} className="w-64" aria-label="Assignment context"><option value="">General question (no assignment)</option>{assignments.filter((a) => a.status === 'published' && a.classId === user.classId).map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}</Select>
-            <Button variant="outline" size="sm" onClick={() => { setConvId(null) }}><Plus className="h-4 w-4" /> New chat</Button>
+            <Select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)} className="w-64" aria-label="Assignment context"><option value="">General question</option>{assignments.filter((a) => a.status === 'published' && a.classId === user.classId).map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}</Select>
+            <Button variant="outline" size="sm" onClick={() => { setConvId(null); setQuestion(''); setLastQuestion('') }}><Plus className="h-4 w-4" /> New chat</Button>
           </div>
           {assignment && <p className="mb-2 text-xs text-slate-500">Studying “{assignment.title}” · due {fmtDateTime(assignment.dueAt)} · {assignment.maxMarks} marks{assignment.rubric ? ` · Rubric: ${assignment.rubric}` : ''}</p>}
           <div className="flex-1 space-y-3 overflow-y-auto pr-1" aria-live="polite">
             {!conv || conv.messages.length === 0 ? (
-              <div className="py-10 text-center"><Bot className="mx-auto h-10 w-10 text-royal-500" /><p className="mt-3 font-display font-bold">Ask me anything about your homework</p><p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">I answer from your class reference books, then give hints step by step — you do the solving.</p></div>
+              <div className="py-10 text-center"><Bot className="mx-auto h-10 w-10 text-royal-500" /><p className="mt-3 font-display font-bold">Ask a homework question</p></div>
             ) : conv.messages.map((m) => (
               <div key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === 'user' ? 'ml-auto bg-royal-500 text-white' : 'bg-slate-100 dark:bg-navy-800'}`}>
-                <p className="whitespace-pre-line">{m.content.replace(/\*\*/g, '')}</p>
+                <p className="whitespace-pre-line">{m.role === 'assistant' ? m.content.replace(/\*\*/g, '').replace(/\n_(.+)_$/, '\n$1') : m.content}</p>
               </div>
             ))}
             <div ref={endRef} />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Adjust help:</span>
+            <span className="text-xs font-semibold text-slate-500">Help options</span>
             {([['Give a hint', 'hint'], ['Explain simply', 'explain'], ['Practice question', 'practice']] as const).map(([label, lvl]) => (
               <button key={lvl} onClick={() => ask(lastQuestion || question || `How do I start ${assignment?.title ?? 'this topic'}?`, lvl)}
                 className="rounded-full border border-royal-500/40 bg-royal-500/5 px-3 py-1 text-xs font-semibold text-royal-600 hover:border-royal-500 dark:text-royal-400">{label}</button>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">{SUGGESTED_PROMPTS.map((p) => (<button key={p} onClick={() => ask(p)} className="rounded-full border border-slate-300 px-3 py-1 text-xs hover:border-royal-500 dark:border-slate-600">{p}</button>))}</div>
           <form onSubmit={submit} className="mt-3 flex gap-2">
             <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask for a hint, an explanation, or the first step…" aria-label="Ask the AI tutor" />
             <Button type="submit"><Send className="h-4 w-4" /> Ask</Button>
@@ -648,13 +646,13 @@ export function StudyPlanner() {
   const fmtMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
   return (
     <div>
-      <PageHeader title="Study Planner" sub="Deterministic scheduling: earliest deadline first, with breaks. No AI needed for planning." action={<Button onClick={generate}><Sparkles className="h-4 w-4" /> Generate my week</Button>} />
+      <PageHeader title="Study Planner" sub="Plan study blocks before your deadlines." action={<Button onClick={generate}><Sparkles className="h-4 w-4" /> Generate my week</Button>} />
       <Card className="mb-4 flex flex-wrap items-end gap-4 p-5">
         <div><Label>Study from (hour)</Label><Input type="number" min={6} max={22} value={startHour} onChange={(e) => setStartHour(Number(e.target.value))} className="w-24" /></div>
         <div><Label>Study until (hour)</Label><Input type="number" min={7} max={23} value={endHour} onChange={(e) => setEndHour(Number(e.target.value))} className="w-24" /></div>
         <p className="text-sm text-slate-500">Blocks are at most 50 minutes, with a 10-minute break between them. Reschedule by ticking a block done or regenerating.</p>
       </Card>
-      {!plan || plan.items.length === 0 ? <EmptyState title="No study plan yet" body="Generate a plan and it will appear here, built from your real deadlines and availability." action={<Button onClick={generate}>Generate my week</Button>} /> : (
+      {!plan || plan.items.length === 0 ? <EmptyState title="No study plan yet" body="Choose your study hours and generate a plan." action={<Button onClick={generate}>Generate my week</Button>} /> : (
         <div className="space-y-2">{[...plan.items].sort((a, b) => (a.date + fmtMin(a.startMin)).localeCompare(b.date + fmtMin(b.startMin))).map((it) => (
           <Card key={it.id} className="flex items-center justify-between gap-3 p-4">
             <label className="flex cursor-pointer items-center gap-3">
@@ -680,7 +678,7 @@ export function StudentCalendar() {
   const plan = studyPlans.find((p) => p.studentId === user.id)
   return (
     <div>
-      <PageHeader title="Calendar" sub="Assignment deadlines and planned study blocks." action={<div className="flex gap-2"><Button variant="outline" onClick={() => setCursor(new Date(year, month - 1, 1))}>← Prev</Button><Button variant="outline" onClick={() => setCursor(new Date())}>Today</Button><Button variant="outline" onClick={() => setCursor(new Date(year, month + 1, 1))}>Next →</Button></div>} />
+      <PageHeader title="Calendar" sub="Assignment deadlines and planned study blocks." action={<div className="flex gap-2"><Button variant="outline" onClick={() => setCursor(new Date(year, month - 1, 1))}>Previous</Button><Button variant="outline" onClick={() => setCursor(new Date())}>Today</Button><Button variant="outline" onClick={() => setCursor(new Date(year, month + 1, 1))}>Next</Button></div>} />
       <Card className="p-5">
         <h2 className="font-display text-xl font-bold">{cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2>
         <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-500">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => <div key={d}>{d}</div>)}</div>
@@ -736,7 +734,7 @@ export function StudentAnalytics() {
   const COLORS = ['#6366F1', '#22D3EE', '#10B981', '#F59E0B', '#F43F5E']
   return (
     <div>
-      <PageHeader title="My Analytics" sub="Computed from your real records. Empty data shows as empty — never invented." />
+      <PageHeader title="My Analytics" sub="Review your submissions, grades and focus time." />
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-5"><p className="text-sm text-slate-500">Completion rate</p><p className="mt-1 font-display text-3xl font-extrabold">{rate}%</p><p className="text-xs text-slate-500">{completed} of {mine.length} submitted</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">On-time rate</p><p className="mt-1 font-display text-3xl font-extrabold">{onTimeRate}%</p><p className="text-xs text-slate-500">{onTime} of {completed} submissions on time</p></Card>
@@ -806,7 +804,7 @@ export function StudentSettings() {
   const navigate = useNavigate()
   return (
     <div>
-      <PageHeader title="Settings" sub="Preferences, focus durations and your data." />
+      <PageHeader title="Settings" sub="Manage your timers and account." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-6">
           <h2 className="font-display font-bold">Focus durations</h2>
@@ -816,7 +814,7 @@ export function StudentSettings() {
             <div><Label>Long break (minutes)</Label><Input type="number" min={5} max={60} value={focusPrefs.longBreakMin} onChange={(e) => setFocusPrefs({ longBreakMin: Number(e.target.value) })} /></div>
           </div>
           <h3 className="mt-6 font-display font-bold">Focus data & consent</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Focus sessions record start/end times, pauses and tab-visibility events only. No camera, microphone or screen recording exists in this app. Your focus history is private by default and is not shared with teachers.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">The timer records start and end times, pauses, and when you leave the tab.</p>
         </Card>
         <Card className="p-6">
           {DEMO_MODE && <>
