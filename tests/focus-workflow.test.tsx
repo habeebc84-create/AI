@@ -11,7 +11,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
-it('shows the running session and the same unfinished tasks on Home and in Focus Mode', async () => {
+it('shows the running session and locks other tabs until it is finished', async () => {
   state().startFocus('a_hist', 'History homework', 'custom', 600)
   render(<App />)
   expect(await screen.findByText('Active session')).toBeTruthy()
@@ -19,9 +19,9 @@ it('shows the running session and the same unfinished tasks on Home and in Focus
   fireEvent.click(screen.getByText('Return to session'))
   expect((await screen.findByText('Open homework')).getAttribute('href')).toBe('/student/assignments/a_hist')
   fireEvent.click(screen.getByLabelText('Mark French Revolution notes done'))
-  fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
-  expect(screen.queryByText('French Revolution notes')).toBeNull()
-  expect(screen.getByText('Active session')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+  expect(await screen.findByText(/Finish your focus session to open other pages/)).toBeTruthy()
+  expect(screen.getByText('Open homework')).toBeTruthy()
 })
 
 it('reconciles hidden time, ignores switches on pause, and stops at the deadline on Home', async () => {

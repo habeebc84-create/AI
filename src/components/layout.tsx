@@ -3,10 +3,10 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Timer, Bot, CalendarDays, BarChart3, Bell, Settings, User,
   Users, Megaphone, Shield, FileText, LogOut, Menu, X, Search, Moon, Sun, GraduationCap,
-  ClipboardList, ClipboardCheck, Home, Sparkles, ChevronRight,
+  ClipboardList, ClipboardCheck, Home, Sparkles, ChevronRight, Lock,
 } from 'lucide-react'
 import { focusDeadline, useStore, useCurrentUser } from '../lib/store'
-import { Toaster } from './ui'
+import { Toaster, toast } from './ui'
 import type { Role } from '../lib/types'
 
 // Tab-visibility tracking runs app-wide during an active focus session:
@@ -162,19 +162,28 @@ export function AppShell() {
   const navigate = useNavigate()
   const logout = useStore((s) => s.logout)
   const notifications = useStore((s) => s.notifications)
+  const activeFocus = useStore((s) => s.activeFocus)
   const unread = user ? notifications.filter((n) => n.userId === user.id && !n.read).length : 0
+  // While a focus session is running, other tabs are locked for the student.
+  const focusLocked = user?.role === 'student' && !!activeFocus
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
+      if (focusLocked) return
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen((o) => !o) }
       if (e.key === '/' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); setSearchOpen(true) }
       if (e.key === 'Escape') setSearchOpen(false)
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [])
+  }, [focusLocked])
 
   if (!user) return null
+  const lockTab = (e: React.MouseEvent) => {
+    if (!focusLocked) return
+    e.preventDefault()
+    toast('Finish your focus session to open other pages.', 'info')
+  }
   const nav = NAV[user.role]
   const notifPath = user.role === 'student' ? '/student/notifications' : user.role === 'parent' ? '/parent/notifications' : user.role === 'teacher' ? '/teacher/dashboard' : '/admin/dashboard'
 
@@ -184,12 +193,23 @@ export function AppShell() {
         <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col transform border-r border-slate-200 bg-white transition-transform dark:border-slate-700 dark:bg-navy-900 lg:sticky lg:top-0 lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Main navigation">
           <div className="flex h-16 shrink-0 items-center justify-between px-4"><Logo to={HOME[user.role]} /><button className="lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button></div>
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
-            {nav.map((item) => (
-              <NavLink key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
-                className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-royal-500/10 text-royal-600 dark:text-royal-400' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-navy-800'}`}>
-                <item.icon className="h-4.5 w-4.5" />{item.label}
-              </NavLink>
-            ))}
+            {nav.map((item) => {
+              const locked = focusLocked && item.to !== '/student/focus'
+              if (locked) {
+                return (
+                  <button key={item.to} type="button" title="Finish your focus session to open this page" onClick={() => toast('Finish your focus session to open other pages.', 'info')}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-400 dark:text-slate-500" aria-disabled="true">
+                    <item.icon className="h-4.5 w-4.5" />{item.label}<Lock className="ml-auto h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                )
+              }
+              return (
+                <NavLink key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-royal-500/10 text-royal-600 dark:text-royal-400' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-navy-800'}`}>
+                  <item.icon className="h-4.5 w-4.5" />{item.label}
+                </NavLink>
+              )
+            })}
           </nav>
           <div className="shrink-0 border-t border-slate-200 p-4 dark:border-slate-700">
             <div className="flex items-center gap-3">
@@ -203,27 +223,32 @@ export function AppShell() {
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 dark:border-slate-700 dark:bg-navy-900">
             <button className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
-            <button onClick={() => setSearchOpen(true)} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-slate-600" aria-label="Search (Ctrl+K)">
+            <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : setSearchOpen(true)} aria-disabled={focusLocked} className={`flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 dark:border-slate-600 ${focusLocked ? 'opacity-50' : ''}`} aria-label="Search (Ctrl+K)">
               <Search className="h-4 w-4" /> <span className="hidden sm:inline">Search…</span> <kbd className="hidden rounded bg-slate-100 px-1.5 sm:inline font-mono text-xs dark:bg-navy-800">Ctrl K</kbd>
             </button>
             <div className="flex-1" />
             <button onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800">
               {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <button onClick={() => navigate(notifPath)} aria-label={`Notifications, ${unread} unread`} className="relative rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800">
+            <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : navigate(notifPath)} aria-disabled={focusLocked} aria-label={`Notifications, ${unread} unread`} className={`relative rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-navy-800 ${focusLocked ? 'opacity-50' : ''}`}>
               <Bell className="h-5 w-5" />
               {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">{unread}</span>}
             </button>
           </header>
+          {focusLocked && (
+            <p className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200" role="status">
+              <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Focus session running — finish it to open other pages. The timer keeps counting.
+            </p>
+          )}
           <main className="mx-auto max-w-6xl p-4 sm:p-6"><Suspense fallback={<p role="status" className="p-4 text-sm">Loading workspace…</p>}><Outlet /></Suspense></main>
         </div>
       </div>
 
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex justify-around border-t border-slate-200 bg-white py-2 lg:hidden dark:border-slate-700 dark:bg-navy-900" aria-label="Quick actions">
-        <Link to={HOME[user.role]} className="flex flex-col items-center gap-0.5 text-xs"><Home className="h-5 w-5" />Home</Link>
-        <Link to={user.role === 'student' ? '/student/focus' : user.role === 'teacher' ? '/teacher/assignments/create' : HOME[user.role]} className="flex flex-col items-center gap-0.5 text-xs"><Sparkles className="h-5 w-5" />{user.role === 'student' ? 'Focus' : user.role === 'teacher' ? 'Create' : 'Home'}</Link>
-        <Link to={user.role === 'student' ? '/student/ai-tutor' : user.role === 'teacher' ? '/teacher/submissions' : notifPath} className="flex flex-col items-center gap-0.5 text-xs"><Bot className="h-5 w-5" />{user.role === 'student' ? 'AI Tutor' : user.role === 'teacher' ? 'Review' : 'Alerts'}</Link>
+        <Link to={HOME[user.role]} onClick={lockTab} className="flex flex-col items-center gap-0.5 text-xs"><Home className="h-5 w-5" />Home</Link>
+        <Link to={user.role === 'student' ? '/student/focus' : user.role === 'teacher' ? '/teacher/assignments/create' : HOME[user.role]} onClick={lockTab} className="flex flex-col items-center gap-0.5 text-xs"><Sparkles className="h-5 w-5" />{user.role === 'student' ? 'Focus' : user.role === 'teacher' ? 'Create' : 'Home'}</Link>
+        <Link to={user.role === 'student' ? '/student/ai-tutor' : user.role === 'teacher' ? '/teacher/submissions' : notifPath} onClick={lockTab} className="flex flex-col items-center gap-0.5 text-xs"><Bot className="h-5 w-5" />{user.role === 'student' ? 'AI Tutor' : user.role === 'teacher' ? 'Review' : 'Alerts'}</Link>
       </nav>
       <div className="h-14 lg:hidden" />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />

@@ -39,14 +39,15 @@ describe('Demo Mode end-to-end (capstone demos 1–10)', () => {
     expect(useStore.getState().focusSessions.some((f) => f.goal === 'French Revolution notes')).toBe(true)
   })
 
-  it('Demo 5: AI tutor gives guided hints, not answers', () => {
+  it('Demo 5: AI tutor answers from the reference book, not ChatGPT', () => {
     const s = useStore.getState()
     s.login('aarav@demo.focused.ai', 'demo1234')
     const id = s.sendTutorMessage(null, 'a_quad', 'Mathematics', 'How do I solve x² + 5x + 6 = 0?')
     const conv = useStore.getState().conversations.find((c) => c.id === id)!
     expect(conv.messages).toHaveLength(2)
     expect(conv.messages[1].content).toMatch(/quadratic/i)
-    expect(conv.messages[1].content).toMatch(/Demo hints/)
+    expect(conv.messages[1].content).toMatch(/reference book/i)
+    expect(conv.messages[1].content).toMatch(/not from ChatGPT/i)
   })
 
   it('Demos 6–7: student submits, teacher grades with feedback', () => {

@@ -66,7 +66,7 @@ describe('AI tutor demo hints', () => {
     const r = generateTutorReply('How do I solve x² + 5x + 6 = 0?', 'Quadratic Equations', 'Mathematics')
     expect(r.heading).toMatch(/quadratic/i)
     expect(r.steps.length).toBeGreaterThan(2)
-    expect(r.note).toMatch(/Demo hints/)
+    expect(r.note).toMatch(/reference book/i)
   })
   it('falls back to Socratic steps for unknown topics', () => {
     const r = generateTutorReply('What is a sonnet?', '', 'English')

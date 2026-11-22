@@ -3,23 +3,8 @@ import { Award, BookOpen, ClipboardCheck, Download, FileText, TrendingUp, Users 
 import { useStore, useCurrentUser } from '../lib/store'
 import { Badge, Card, EmptyState, PageHeader, statusBadge } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
+import { REFERENCE_BOOKS } from '../lib/reference'
 import type { Assignment, Submission, User } from '../lib/types'
-
-interface ReferencePdf {
-  file: string
-  title: string
-  subject: string
-  summary: string
-}
-
-// Real PDF files shipped with the app (public/reference). They download
-// straight from this computer, so revision material works offline.
-const REFERENCE_PDFS: ReferencePdf[] = [
-  { file: '/reference/mathematics-formula-sheet.pdf', title: 'Mathematics formula sheet', subject: 'Mathematics', summary: 'Quadratic formula, identities, trigonometry and mensuration, on one page.' },
-  { file: '/reference/science-lab-report-guide.pdf', title: 'Science lab report guide', subject: 'Science', summary: 'The six sections of a lab report, from aim and variables to sources of error.' },
-  { file: '/reference/english-essay-structure.pdf', title: 'English essay structure', subject: 'English', summary: 'Introduction, body paragraphs with evidence, conclusion and quoting well.' },
-  { file: '/reference/computer-science-python-cheatsheet.pdf', title: 'Python reference sheet', subject: 'Computer Science', summary: 'Input, loops, lists, dictionaries, functions and the errors you will meet.' },
-]
 
 function hasGrade(sub?: Submission): sub is Submission & { grade: number } {
   return !!sub && sub.grade !== null && sub.grade !== undefined
@@ -74,14 +59,14 @@ function ReferencePdfs() {
         <ClipboardCheck className="h-6 w-6 text-royal-500" aria-hidden="true" />
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {REFERENCE_PDFS.map((pdf) => (
-          <div key={pdf.file} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+        {REFERENCE_BOOKS.map((book) => (
+          <div key={book.file} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <div className="min-w-0">
-              <p className="font-semibold">{pdf.title}</p>
-              <p className="text-xs text-slate-500">{pdf.subject} · PDF</p>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{pdf.summary}</p>
+              <p className="font-semibold">{book.title}</p>
+              <p className="text-xs text-slate-500">{book.subject} · PDF</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{book.summary}</p>
             </div>
-            <a href={pdf.file} download aria-label={`Download ${pdf.title} PDF`}
+            <a href={book.file} download aria-label={`Download ${book.title} PDF`}
               className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-navy-800">
               <Download className="h-4 w-4" /> PDF
             </a>

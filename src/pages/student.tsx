@@ -388,7 +388,7 @@ export function FocusHistory() {
 
 export function AiTutor() {
   const user = useCurrentUser()!
-  const { assignments, conversations, sendTutorMessage, aiConfig } = useStore()
+  const { assignments, conversations, sendTutorMessage } = useStore()
   const [convId, setConvId] = useState<string | null>(null)
   const [assignmentId, setAssignmentId] = useState('')
   const [question, setQuestion] = useState('')
@@ -406,12 +406,10 @@ export function AiTutor() {
   return (
     <div>
       <PageHeader title="AI Tutor" sub="Guided hints and step-by-step reasoning. The tutor teaches — it does not write your homework for you." />
-      {!aiConfig.configured && (
-        <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" role="note">
-          <strong>AI not configured — demo hints.</strong> No AI provider is connected, so the tutor gives deterministic guided hints from assignment context.
-          An administrator can configure a provider in Admin → AI Settings. No data leaves this computer.
-        </p>
-      )}
+      <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" role="note">
+        <strong>Reference-book tutor.</strong> Every answer is taken from your built-in reference books (Mathematics, Science, English, Computer Science) —
+        no ChatGPT or external AI is used. <Link to="/student/assessments" className="underline">Open the reference PDFs</Link> on the Assessment tab.
+      </p>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="flex h-[560px] flex-col p-5 lg:col-span-2">
           <div className="mb-3 flex flex-wrap gap-2">
@@ -420,7 +418,7 @@ export function AiTutor() {
           </div>
           <div className="flex-1 space-y-3 overflow-y-auto pr-1" aria-live="polite">
             {!conv || conv.messages.length === 0 ? (
-              <div className="py-10 text-center"><Bot className="mx-auto h-10 w-10 text-royal-500" /><p className="mt-3 font-display font-bold">Ask me anything about your homework</p><p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">I will ask guiding questions and give hints step by step — you do the solving.</p></div>
+              <div className="py-10 text-center"><Bot className="mx-auto h-10 w-10 text-royal-500" /><p className="mt-3 font-display font-bold">Ask me anything about your homework</p><p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">I answer from your class reference books, then give hints step by step — you do the solving.</p></div>
             ) : conv.messages.map((m) => (
               <div key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === 'user' ? 'ml-auto bg-royal-500 text-white' : 'bg-slate-100 dark:bg-navy-800'}`}>
                 <p className="whitespace-pre-line">{m.content.replace(/\*\*/g, '')}</p>
