@@ -129,8 +129,24 @@ export function saveStoredFile(file: StoredFile, fallbackNote: string) {
 }
 
 export function validateUploadFile(file: { name: string; size: number; type: string }): string | null {
-  if (!ALLOWED_FILE_TYPES.includes(file.type)) return `“${file.name}” is not an allowed type. Allowed: PDF, DOCX, images, plain text.`
-  if (file.size > MAX_FILE_MB * 1024 * 1024) return `“${file.name}” exceeds the ${MAX_FILE_MB} MB limit.`
+  // Allow PDF, DOCX, images, and plain text. The server also checks these.
+  const allowedTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'text/plain',
+  ]
+  if (!allowedTypes.includes(file.type)) {
+    return `“${file.name}” is not an allowed type. Allowed: PDF, DOCX, images, plain text.`
+  }
+  // The server allows up to 9 MB per request, but per-file cap is 10 MB in utils.
+  // The UI limits to 2 MB per file for local storage budget (3 MB total).
+  if (file.size > MAX_FILE_MB * 1024 * 1024) {
+    return `“${file.name}” exceeds the ${MAX_FILE_MB} MB limit.`
+  }
   return null
 }
 

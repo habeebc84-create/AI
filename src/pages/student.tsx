@@ -208,13 +208,22 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   const onFiles = async (fl: FileList | null) => {
     if (!fl) return
     setError('')
-    if (!DEMO_MODE && (files.length + fl.length > 3 || Array.from(fl).some((file) => file.size > MAX_STORED_FILE_BYTES))) {
-      setError('Attach up to three supported files, each up to 2 MB.')
+    // Allow up to 3 files per submission
+    if (files.length + fl.length > 3) {
+      setError('Attach up to three supported files.')
       return
     }
+    // Check total budget for local storage (3 MB) if not in demo mode
+    const totalSize = files.reduce((s, f) => s + f.size, 0) + Array.from(fl).reduce((s, f) => s + f.size, 0)
+    if (!DEMO_MODE && totalSize > LOCAL_FILE_BUDGET_BYTES) {
+      setError('Total attachment size exceeds the 3 MB browser storage budget. Attach smaller files or fewer files.')
+      return
+    }
+
     for (const f of Array.from(fl)) {
       const err = validateUploadFile(f)
       if (err) { setError(err); return }
+      
       // File contents are stored on this computer with the submission, so
       // your teacher downloads the real file. Over the local cap, the file
       // is listed only and the teacher is told its contents were not stored.
@@ -223,7 +232,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           const dataUrl = await readFileAsDataUrl(f)
           setFiles((prev) => [...prev, { name: f.name, size: f.size, type: f.type, dataUrl }])
         } catch {
-          setError(`Could not read “${f.name}” on this computer.`)
+          setError(`Could not read “${f.name}” on this computer. Check permissions or file type.`)
           return
         }
       } else {

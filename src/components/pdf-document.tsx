@@ -3,6 +3,7 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { Button } from './ui'
 
+// Ensure the worker is loaded globally before rendering
 GlobalWorkerOptions.workerSrc = workerUrl
 
 export default function PdfDocument({ file, title }: { file: string; title: string }) {
@@ -13,15 +14,26 @@ export default function PdfDocument({ file, title }: { file: string; title: stri
 
   useEffect(() => {
     let cancelled = false
-    const task = getDocument({ url: file })
-    void task.promise.then((document) => {
-      if (!cancelled) setPdf(document)
-    }, () => {
-      if (!cancelled) setStatus('error')
-    })
+    // Use fetch to get the PDF as a blob, then load it. This avoids CORS issues
+    // with the BASE_URL reference files in some environments.
+    const loadPdf = async () => {
+      try {
+        const response = await fetch(file)
+        if (!response.ok) throw new Error('Network response was not ok')
+        const arrayBuffer = await response.arrayBuffer()
+        const task = getDocument({ data: arrayBuffer })
+        if (!cancelled) {
+          const document = await task.promise
+          setPdf(document)
+        }
+      } catch (err) {
+        console.error('Failed to load PDF:', err)
+        if (!cancelled) setStatus('error')
+      }
+    }
+    void loadPdf()
     return () => {
       cancelled = true
-      void task.destroy().catch(() => {})
     }
   }, [file])
 
@@ -54,7 +66,7 @@ export default function PdfDocument({ file, title }: { file: string; title: stri
   return (
     <div className="mt-3 min-w-0 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
       {status === 'loading' && <p role="status">Loading PDF page…</p>}
-      {status === 'error' && <p role="alert">This PDF could not be displayed.</p>}
+      {status === 'error' && <p role="alert">This PDF could not be displayed. Please check the file path or network connection.</p>}
       <canvas ref={canvas} role="img" aria-label={`${title}, page ${number}`} hidden={status !== 'ready'} className="mx-auto h-auto max-w-full bg-white" />
       {pdf && pdf.numPages > 1 && <div className="mt-2 flex items-center justify-between gap-2">
         <Button size="sm" variant="outline" disabled={number === 1} onClick={() => setNumber(number - 1)}>Previous page</Button>

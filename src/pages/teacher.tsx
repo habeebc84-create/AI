@@ -133,12 +133,25 @@ function AssignmentFilesInput({ id, files, onChange, onError }: { id: string; fi
     onError('')
     const picked = Array.from(list)
     if (files.length + picked.length > 3) { onError('Attach up to three files.'); return }
+    
+    // Check total budget for local storage (3 MB) if not in demo mode
+    const totalSize = files.reduce((s, f) => s + f.size, 0) + picked.reduce((s, f) => s + f.size, 0)
+    if (!DEMO_MODE && totalSize > LOCAL_FILE_BUDGET_BYTES) {
+      onError('Total attachment size exceeds the 3 MB browser storage budget. Attach smaller files or fewer files.'); return
+    }
+
     const next = [...files]
     for (const file of picked) {
       const problem = validateUploadFile(file)
       if (problem) { onError(problem); return }
-      if (file.size > MAX_STORED_FILE_BYTES) { onError(`“${file.name}” is over 2 MB. Attach files of up to 2 MB each.`); return }
-      try { next.push({ name: file.name, size: file.size, type: file.type, dataUrl: await readFileAsDataUrl(file) }) } catch { onError(`Could not read “${file.name}”.`); return }
+      if (file.size > MAX_STORED_FILE_BYTES) {
+        onError(`“${file.name}” is over 2 MB. Attach files of up to 2 MB each.`); return
+      }
+      try {
+        next.push({ name: file.name, size: file.size, type: file.type, dataUrl: await readFileAsDataUrl(file) })
+      } catch {
+        onError(`Could not read “${file.name}”. Check permissions or file type.`); return
+      }
     }
     onChange(next)
   }
