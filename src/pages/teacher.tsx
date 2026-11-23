@@ -5,12 +5,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BookOpen, Users, ClipboardList, BarChart3, Megaphone, Plus, Send, Download, CheckCircle2, RotateCcw, FileText } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore, useCurrentUser } from '../lib/store'
-import { PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
+import { WrappedTick, useCategoryAxis, PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
 import { completionRate, fmtDateTime, localDateTimeInput, validateUploadFile, dataUrlToBlob, type StoredFile } from '../lib/utils'
 import type { Assignment } from '../lib/types'
 
 export function TeacherDashboard() {
   const user = useCurrentUser()!
+  const axis = useCategoryAxis()
   const { classes, assignments, submissions, users } = useStore()
   const myClasses = classes.filter((c) => c.teacherId === user.id)
   const myAssignments = assignments.filter((a) => a.teacherId === user.id)
@@ -20,7 +21,7 @@ export function TeacherDashboard() {
   const students = new Set(myClasses.flatMap((c) => c.studentIds))
   const trend = published.slice(0, 5).map((a) => {
     const subs = mySubs.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
-    return { name: a.title.length > 18 ? a.title.slice(0, 18) + '…' : a.title, submitted: subs.length, total: myClasses.find((c) => c.id === a.classId)?.studentIds.length ?? 0 }
+    return { name: a.title, submitted: subs.length, total: myClasses.find((c) => c.id === a.classId)?.studentIds.length ?? 0 }
   })
   return (
     <div>
@@ -39,7 +40,7 @@ export function TeacherDashboard() {
         <Card className="p-5">
           <h2 className="font-display text-lg font-bold">Submissions per assignment</h2>
           {trend.length === 0 ? <p className="mt-2 text-sm text-slate-500">No published assignments yet.</p> : (
-            <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={trend}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="submitted" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} /></BarChart></ResponsiveContainer></div>
+            <div className="mt-4" style={{ height: Math.max(180, trend.length * 46 + 30) }}><ResponsiveContainer width="100%" height="100%"><BarChart data={trend} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}><CartesianGrid strokeDasharray="2 4" horizontal={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis type="number" allowDecimals={false} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" interval={0} width={axis.width} tick={<WrappedTick maxChars={axis.chars} />} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="submitted" name="Submitted" fill="#C2461E" radius={[0, 4, 4, 0]} maxBarSize={28} /></BarChart></ResponsiveContainer></div>
           )}
         </Card>
         <Card className="p-5">
@@ -321,6 +322,7 @@ export function TeacherSubmissionDetail() {
 
 export function TeacherAnalytics() {
   const user = useCurrentUser()!
+  const axis = useCategoryAxis()
   const { assignments, submissions, classes } = useStore()
   const mine = assignments.filter((a) => a.teacherId === user.id && a.status === 'published')
   const subs = submissions.filter((s) => mine.some((a) => a.id === s.assignmentId) && s.submittedAt && !s.returnedForRevision)
@@ -328,7 +330,7 @@ export function TeacherAnalytics() {
   const data = mine.map((a) => {
     const list = subs.filter((s) => s.assignmentId === a.id)
     const total = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
-    return { name: a.title.length > 16 ? a.title.slice(0, 16) + '…' : a.title, rate: completionRate(list.length, total), onTime: completionRate(list.filter((s) => !s.isLate).length, Math.max(1, list.length)) }
+    return { name: a.title, rate: completionRate(list.length, total), onTime: completionRate(list.filter((s) => !s.isLate).length, Math.max(1, list.length)) }
   })
   return (
     <div>
@@ -339,7 +341,7 @@ export function TeacherAnalytics() {
         <Card className="p-5"><p className="text-sm text-slate-500">Grading workload</p><p className="mt-1 font-display text-3xl font-extrabold">{subs.filter((s) => s.grade === null).length}</p><p className="text-xs text-slate-500">Submissions awaiting a grade</p></Card>
       </div>
       <Card className="mt-4 p-5"><h2 className="font-display font-bold">Submission rate by assignment</h2>
-        <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} name="Submission %" /><Bar dataKey="onTime" fill="#3F8A6B" radius={[4, 4, 0, 0]} maxBarSize={44} name="On-time %" /></BarChart></ResponsiveContainer></div>
+        <div className="mt-4" style={{ height: Math.max(200, data.length * 58 + 30) }}><ResponsiveContainer width="100%" height="100%"><BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}><CartesianGrid strokeDasharray="2 4" horizontal={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis type="number" domain={[0, 100]} unit="%" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" interval={0} width={axis.width} tick={<WrappedTick maxChars={axis.chars} />} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[0, 4, 4, 0]} maxBarSize={18} name="Submission %" /><Bar dataKey="onTime" fill="#3F8A6B" radius={[0, 4, 4, 0]} maxBarSize={18} name="On-time %" /></BarChart></ResponsiveContainer></div>
       </Card>
     </div>
   )

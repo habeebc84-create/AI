@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Timer, Bot, CalendarDays, BarChart3, Bell, Settings, User,
@@ -25,8 +25,12 @@ export function useFocusVisibility() {
 }
 
 const SITE = 'FocusEd AI'
+// Layout effect, not a passive effect: with view transitions the passive
+// effect can run after the animation, so rapid clicks left the tab title one
+// page behind. A layout effect updates it in the same commit as the page.
+const formatTitle = (title: string) => (title ? `${title} · ${SITE}` : `${SITE} | Homework and Study Planning`)
 export function useDocumentTitle(title: string) {
-  useEffect(() => { document.title = title ? `${title} · ${SITE}` : `${SITE} | Homework and Study Planning` }, [title])
+  useLayoutEffect(() => { document.title = formatTitle(title) }, [title])
 }
 
 const PUBLIC_TITLES: Record<string, string> = {
@@ -102,6 +106,29 @@ const NAV: Record<Role, { to: string; label: string; icon: typeof LayoutDashboar
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
 
+// Title for a URL, known before React renders it. Returns null when the
+// page decides its own title (unknown or redirecting paths).
+export function titleForPath(pathname: string): string | null {
+  if (pathname in PUBLIC_TITLES) return PUBLIC_TITLES[pathname]
+  for (const items of Object.values(NAV)) {
+    const hit = items.find((item) => item.to === pathname)
+    if (hit) return hit.label
+  }
+  return null
+}
+
+// With view transitions React commits the new page a moment after the URL
+// changes, so on rapid clicks the tab title trailed one page behind. Where the
+// Navigation API exists, set the title the instant the URL changes; the
+// layout-effect hook above still confirms it when the page commits.
+if (typeof window !== 'undefined' && 'navigation' in window) {
+  const nav = (window as unknown as { navigation: EventTarget }).navigation
+  nav.addEventListener('currententrychange', () => {
+    const title = titleForPath(window.location.pathname)
+    if (title !== null) document.title = formatTitle(title)
+  })
+}
+
 export const HOME: Record<Role, string> = {
   student: '/student/dashboard', teacher: '/teacher/dashboard', parent: '/parent/dashboard', admin: '/admin/dashboard',
 }
@@ -122,7 +149,7 @@ export function Logo({ light = false, to = '/' }: { light?: boolean; to?: string
     <Link to={to} className="group flex items-center gap-2.5 rounded-lg" aria-label="FocusEd AI home">
       <LogoMark className="h-8 w-8 transition-transform duration-300 ease-[cubic-bezier(.22,.8,.24,1)] group-hover:-rotate-6" />
       <span className={`font-display text-[1.3rem] font-semibold leading-none tracking-[-0.03em] ${light ? 'text-white' : 'text-slate-900 dark:text-slate-50'}`}>
-        FocusEd<span className="ml-1 align-[0.3em] font-mono text-[0.55rem] font-medium tracking-[0.12em] text-royal-600 dark:text-royal-400">AI</span>
+        FocusEd{' '}<span className="align-[0.3em] font-mono text-[0.55rem] font-medium tracking-[0.12em] text-royal-600 dark:text-royal-400">AI</span>
       </span>
     </Link>
   )
@@ -292,8 +319,8 @@ export function AppShell() {
           <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-mist/85 px-4 backdrop-blur-md supports-[backdrop-filter]:bg-mist/70 sm:px-6 dark:border-white/[0.07] dark:bg-navy-950/80">
             <button className="rounded-lg p-1.5 hover:bg-slate-900/5 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu" aria-controls="workspace-navigation" aria-expanded={menuOpen}><Menu className="h-5 w-5" /></button>
             <p className="min-w-0 flex-1 truncate text-sm text-slate-500 dark:text-slate-400"><span className="hidden capitalize sm:inline">{user.role}</span><span className="mx-2 hidden text-slate-300 sm:inline dark:text-slate-600">/</span><span className="font-medium text-slate-900 dark:text-slate-100">{pageName}</span></p>
-            <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : setSearchOpen(true)} aria-disabled={focusLocked} className={`flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:text-slate-200 sm:w-56 ${focusLocked ? 'opacity-50' : ''}`} aria-label={isMac ? 'Search (Command+K)' : 'Search (Ctrl+K)'}>
-              <Search className="h-4 w-4" /> <span className="hidden sm:inline">Search</span> <kbd className="ml-auto hidden rounded border border-slate-200 px-1.5 font-mono text-[11px] text-slate-500 sm:inline dark:border-white/10">{isMac ? '⌘\u00a0K' : 'Ctrl\u00a0K'}</kbd>
+            <button onClick={() => focusLocked ? toast('Finish your focus session to open other pages.', 'info') : setSearchOpen(true)} aria-disabled={focusLocked} className={`flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:text-slate-200 sm:w-56 ${focusLocked ? 'opacity-50' : ''}`} aria-keyshortcuts={isMac ? 'Meta+K' : 'Control+K'}>
+              <Search className="h-4 w-4" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Search</span> <kbd aria-hidden="true" className="ml-auto hidden rounded border border-slate-200 px-1.5 font-mono text-[11px] text-slate-500 sm:inline dark:border-white/10">{isMac ? '⌘\u00a0K' : 'Ctrl\u00a0K'}</kbd>
             </button>
             <button onClick={toggle} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100">
               {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}

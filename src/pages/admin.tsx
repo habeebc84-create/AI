@@ -2,7 +2,7 @@ import { runAction } from '../lib/laptop'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Users, BookOpen, BarChart3, Bot, Shield, Settings, FileText, CheckCircle2 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts'
 import { useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { PageHeader, Button, Card, Input, Label, Select, Badge, EmptyState, toast } from '../components/ui'
 import { completionRate, fmtDateTime } from '../lib/utils'
@@ -36,7 +36,7 @@ export function AdminDashboard() {
         </Card>
         <Card className="p-5">
           <h2 className="font-display font-bold">Completion by class</h2>
-          <div className="mt-4 h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={classes.map((c) => ({ name: c.name, rate: completionRate(submissions.filter((s) => s.submittedAt && !s.returnedForRevision && c.studentIds.includes(s.studentId) && assignments.some((a) => a.id === s.assignmentId && a.classId === c.id && a.status === 'published')).length, Math.max(1, c.studentIds.length * assignments.filter((a) => a.classId === c.id && a.status === 'published').length)) }))}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} name="Completion %" /></BarChart></ResponsiveContainer></div>
+          <div className="mt-4 h-48 text-slate-600 dark:text-slate-300"><ResponsiveContainer width="100%" height="100%"><BarChart margin={{ top: 20, right: 8, bottom: 0, left: 0 }} data={classes.map((c) => ({ name: c.name, rate: completionRate(submissions.filter((s) => s.submittedAt && !s.returnedForRevision && c.studentIds.includes(s.studentId) && assignments.some((a) => a.id === s.assignmentId && a.classId === c.id && a.status === 'published')).length, Math.max(1, c.studentIds.length * assignments.filter((a) => a.classId === c.id && a.status === 'published').length)) }))}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} minPointSize={3} name="Completion %"><LabelList dataKey="rate" position="top" formatter={(v: unknown) => `${v}%`} fill="currentColor" fontSize={12} fontWeight={600} /></Bar></BarChart></ResponsiveContainer></div>
         </Card>
       </div>
     </div>

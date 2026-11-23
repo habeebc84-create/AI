@@ -1,3 +1,4 @@
+import { wrapLabel } from '../lib/utils'
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState, ViewTransition } from 'react'
 import { Link, type LinkProps } from 'react-router-dom'
 import { X, CheckCircle2, AlertTriangle, Info } from 'lucide-react'
@@ -218,4 +219,42 @@ export function PageTransition({ id, children }: { id: string; children: ReactNo
 export function RouteTransition({ id, children }: { id: string; children: ReactNode }) {
   if (!supportsViewTransitions) return <>{children}</>
   return <ViewTransition key={id} enter="page-enter" exit="page-exit" default="none">{children}</ViewTransition>
+}
+
+// Matches a CSS media query; false where matchMedia is unavailable (tests, SSR).
+export function useMediaQuery(query: string) {
+  const get = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches
+  const [matches, setMatches] = useState(get)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia(query)
+    const on = () => setMatches(mq.matches)
+    on(); mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [query])
+  return matches
+}
+
+// Category-axis tick for horizontal bar charts: wraps long assignment names
+// onto two lines (ellipsised past that) and keeps the full name as a native
+// tooltip, so nothing is clipped at the chart edge.
+export function WrappedTick({ x, y, payload, maxChars }: { x?: number; y?: number; payload?: { value: string }; maxChars: number }) {
+  const full = String(payload?.value ?? '')
+  const lines = wrapLabel(full, maxChars)
+  const offset = ((lines.length - 1) * 14) / 2
+  return (
+    <g transform={`translate(${x ?? 0},${y ?? 0})`}>
+      <title>{full}</title>
+      <text textAnchor="end" fill="#8A8273" fontSize={12} dx={-6}>
+        {lines.map((l, i) => <tspan key={i} x={0} dx={-6} dy={i === 0 ? 4 - offset : 14}>{l}</tspan>)}
+      </text>
+    </g>
+  )
+}
+
+// Label column for horizontal bar charts: full names on wider screens,
+// shorter (ellipsised, full name in the tooltip) on phones.
+export function useCategoryAxis() {
+  const wide = useMediaQuery('(min-width: 640px)')
+  return wide ? { width: 156, chars: 22 } : { width: 100, chars: 13 }
 }

@@ -176,3 +176,25 @@ export function buildStudyPlan(
   }
   return blocks
 }
+
+// Split a chart label into at most `maxLines` lines of up to `maxChars`,
+// breaking on spaces. Text that still does not fit ends with an ellipsis.
+export function wrapLabel(text: string, maxChars: number, maxLines = 2): string[] {
+  const clip = (s: string) => (s.length > maxChars ? s.slice(0, maxChars - 1).trimEnd() : s)
+  const lines: string[] = []
+  let line = ''
+  const words = text.split(/\s+/).filter(Boolean)
+  for (let i = 0; i < words.length; i++) {
+    const next = line ? `${line} ${words[i]}` : words[i]
+    if (next.length <= maxChars || !line) { line = next; continue }
+    lines.push(line)
+    line = words[i]
+    if (lines.length === maxLines) {
+      const last = lines.pop()!
+      const room = last.length >= maxChars ? last.slice(0, maxChars - 1).trimEnd() : last
+      return [...lines.map(clip), `${room}…`]
+    }
+  }
+  if (line) lines.push(line)
+  return lines.map((l) => (l.length > maxChars ? `${clip(l)}…` : l))
+}

@@ -45,9 +45,66 @@ export function ParentDashboard() {
             <h2 className="font-display font-bold">Recent updates</h2>
             {unread.length === 0 ? <p className="mt-2 text-sm text-slate-500">No unread updates.</p> : unread.slice(0, 5).map((n) => (<p key={n.id} className="mt-2 text-sm"><span className="font-semibold">{n.title}</span> — <span className="text-slate-500">{n.body}</span></p>))}
           </Card>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <UpcomingWork kids={children} />
+            <RecentGrades kids={children} />
+          </div>
         </>
       )}
     </div>
+  )
+}
+
+type Child = ReturnType<typeof useChildren>[number]
+
+// Work each linked child still has to hand in (not submitted, or sent back
+// for revision), soonest due first. Built only from assignments already in the store.
+function UpcomingWork({ kids }: { kids: Child[] }) {
+  const { assignments, submissions } = useStore()
+  const now = Date.now()
+  const rows = kids.flatMap((child) => assignments
+    .filter((a) => a.status === 'published' && a.classId === child.classId)
+    .filter((a) => { const s = submissions.find((x) => x.assignmentId === a.id && x.studentId === child.id); return !s?.submittedAt || s.returnedForRevision })
+    .map((a) => ({ a, child, overdue: new Date(a.dueAt).getTime() < now, revision: !!submissions.find((x) => x.assignmentId === a.id && x.studentId === child.id)?.returnedForRevision })))
+    .sort((x, y) => new Date(x.a.dueAt).getTime() - new Date(y.a.dueAt).getTime())
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between gap-2"><h2 className="font-display font-bold">Upcoming assignments</h2><Link to="/parent/assignments" className="text-sm font-semibold text-royal-500 hover:underline">All assignments</Link></div>
+      {rows.length === 0 ? <p className="mt-3 text-sm text-slate-500">Nothing left to hand in. Every published assignment has been submitted.</p> : (
+        <ul className="mt-3 divide-y divide-slate-200 dark:divide-white/[0.07]">
+          {rows.slice(0, 5).map(({ a, child, overdue, revision }) => (
+            <li key={`${child.id}-${a.id}`} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+              <div className="min-w-0"><p className="truncate text-sm font-semibold">{a.title}</p><p className="text-xs text-slate-500">{a.subject}{kids.length > 1 ? ` · ${child.name}` : ''} · due {fmtDateTime(a.dueAt)}</p></div>
+              {revision ? <Badge color="amber">Revision requested</Badge> : overdue ? <Badge color="rose">Overdue</Badge> : <Badge color="slate">Not submitted</Badge>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+// Most recently graded work for each linked child.
+function RecentGrades({ kids }: { kids: Child[] }) {
+  const { assignments, submissions } = useStore()
+  const rows = kids.flatMap((child) => submissions
+    .filter((s) => s.studentId === child.id && s.grade !== null && !s.returnedForRevision)
+    .flatMap((s) => { const a = assignments.find((x) => x.id === s.assignmentId && x.status === 'published' && x.classId === child.classId); return a ? [{ s, a, child }] : [] }))
+    .sort((x, y) => new Date(y.s.updatedAt).getTime() - new Date(x.s.updatedAt).getTime())
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between gap-2"><h2 className="font-display font-bold">Recent grades</h2><Link to="/parent/progress" className="text-sm font-semibold text-royal-500 hover:underline">Full progress</Link></div>
+      {rows.length === 0 ? <p className="mt-3 text-sm text-slate-500">No grades yet. Grades appear here once a teacher marks submitted work.</p> : (
+        <ul className="mt-3 divide-y divide-slate-200 dark:divide-white/[0.07]">
+          {rows.slice(0, 5).map(({ s, a, child }) => (
+            <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
+              <div className="min-w-0"><p className="truncate text-sm font-semibold">{a.title}</p><p className="text-xs text-slate-500">{a.subject}{kids.length > 1 ? ` · ${child.name}` : ''}{s.feedback ? ' · feedback available' : ''}</p></div>
+              <p className="shrink-0 text-right"><span className="font-display text-lg font-extrabold">{s.grade}/{a.maxMarks}</span><span className="block text-xs text-slate-500">{completionRate(s.grade ?? 0, a.maxMarks)}%</span></p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }
 
