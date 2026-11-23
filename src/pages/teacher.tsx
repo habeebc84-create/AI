@@ -25,21 +25,21 @@ export function TeacherDashboard() {
   return (
     <div>
       <PageHeader title={`Hello, ${user.name}`} sub="Class activity and work to review." action={<LinkButton to="/teacher/assignments/create"><Plus className="h-4 w-4" /> New Assignment</LinkButton>} />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Classes', value: String(myClasses.length), sub: `${students.size} students`, icon: Users },
           { label: 'Published assignments', value: String(published.length), sub: `${myAssignments.filter((a) => a.status === 'draft').length} drafts`, icon: BookOpen },
           { label: 'Submissions received', value: String(mySubs.filter((s) => s.submittedAt).length), sub: `${awaiting.length} awaiting review`, icon: ClipboardList },
           { label: 'On-time rate', value: `${completionRate(mySubs.filter((s) => s.submittedAt && !s.isLate).length, Math.max(1, mySubs.filter((s) => s.submittedAt).length))}%`, sub: 'Of submitted work', icon: BarChart3 },
         ].map((s) => (
-          <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-5 w-5 text-royal-500" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
+          <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-4 w-4 text-slate-500" strokeWidth={1.75} aria-hidden="true" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
         ))}
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="font-display text-lg font-bold">Submissions per assignment</h2>
           {trend.length === 0 ? <p className="mt-2 text-sm text-slate-500">No published assignments yet.</p> : (
-            <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis /><Tooltip /><Bar dataKey="submitted" fill="#6366F1" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div>
+            <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={trend}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="submitted" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} /></BarChart></ResponsiveContainer></div>
           )}
         </Card>
         <Card className="p-5">
@@ -48,7 +48,7 @@ export function TeacherDashboard() {
             const a = myAssignments.find((x) => x.id === s.assignmentId)
             const st = users.find((u) => u.id === s.studentId)
             return (
-              <Link key={s.id} to={`/teacher/submissions/${s.id}`} className="mt-2 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
+              <Link key={s.id} to={`/teacher/submissions/${s.id}`} className="mt-2 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700">
                 <span><span className="block text-sm font-semibold">{st?.name}</span><span className="text-xs text-slate-500">{a?.title} · submitted {s.submittedAt ? fmtDateTime(s.submittedAt) : ''}</span></span>
                 <Badge color="amber">Review</Badge>
               </Link>
@@ -73,7 +73,7 @@ export function TeacherClasses() {
           <Card key={c.id} className="p-5">
             <h3 className="font-display text-lg font-bold">{c.name}</h3>
             <p className="text-sm text-slate-500">{c.grade} · {c.subject} · {c.studentIds.length} students</p>
-            <ul className="mt-3 space-y-1 text-sm">{c.studentIds.map((id) => { const s = users.find((u) => u.id === id); return s ? <li key={id}>• {s.name} <span className="text-slate-400">({s.email})</span></li> : null })}</ul>
+            <ul className="mt-3 space-y-1 text-sm">{c.studentIds.map((id) => { const s = users.find((u) => u.id === id); return s ? <li key={id}>• {s.name} <span className="text-slate-500">({s.email})</span></li> : null })}</ul>
           </Card>
         ))}</div>
       )}
@@ -214,7 +214,7 @@ export function TeacherAssignmentDetail() {
           {submitted.length === 0 ? <p className="mt-2 text-sm text-slate-500">No submissions ready for review.</p> : submitted.map((s) => {
             const st = users.find((u) => u.id === s.studentId)
             return (
-              <Link key={s.id} to={`/teacher/submissions/${s.id}`} className="mt-2 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
+              <Link key={s.id} to={`/teacher/submissions/${s.id}`} className="mt-2 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700">
                 <span><span className="block text-sm font-semibold">{st?.name}</span><span className="text-xs text-slate-500">{s.submittedAt ? `submitted ${fmtDateTime(s.submittedAt)}` : 'draft — not submitted'}</span></span>
                 <span className="flex items-center gap-2">{statusBadge(s.status)}{s.grade !== null && <Badge color="emerald">{s.grade}/{a.maxMarks}</Badge>}</span>
               </Link>
@@ -299,7 +299,7 @@ export function TeacherSubmissionDetail() {
           <p className="mt-3 whitespace-pre-line text-slate-700 dark:text-slate-200">{s.text || '(No text response.)'}</p>
           <h3 className="mt-5 font-display font-bold">Attached files</h3>
           {s.files.length === 0 ? <p className="mt-1 text-sm text-slate-500">No files attached.</p> : s.files.map((f) => (
-            <button key={f.name} onClick={() => downloadFile(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-royal-500 dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
+            <button key={f.name} onClick={() => downloadFile(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
           ))}
           <p className="mt-4 text-xs text-slate-500">File downloads are validated: only the owning teacher and the submitting student can access a submission. An attachment with stored contents downloads as the original file. Sample metadata downloads as a text note.</p>
         </Card>
@@ -339,7 +339,7 @@ export function TeacherAnalytics() {
         <Card className="p-5"><p className="text-sm text-slate-500">Grading workload</p><p className="mt-1 font-display text-3xl font-extrabold">{subs.filter((s) => s.grade === null).length}</p><p className="text-xs text-slate-500">Submissions awaiting a grade</p></Card>
       </div>
       <Card className="mt-4 p-5"><h2 className="font-display font-bold">Submission rate by assignment</h2>
-        <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} name="Submission %" /><Bar dataKey="onTime" fill="#10B981" radius={[6, 6, 0, 0]} name="On-time %" /></BarChart></ResponsiveContainer></div>
+        <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-25} textAnchor="end" height={60} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} name="Submission %" /><Bar dataKey="onTime" fill="#3F8A6B" radius={[4, 4, 0, 0]} maxBarSize={44} name="On-time %" /></BarChart></ResponsiveContainer></div>
       </Card>
     </div>
   )
@@ -361,13 +361,13 @@ export function TeacherAnnouncements() {
         <Card className="p-6">
           <h2 className="font-display font-bold">New announcement</h2>
           <form onSubmit={submit} className="mt-4 space-y-4">
-            <div><Label>Class</Label><Select value={classId} onChange={(e) => setClassId(e.target.value)}>{myClasses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
-            <div><Label>Title</Label><Input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Unit test next Monday" /></div>
-            <div><Label>Message</Label><Textarea required rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-class">Class</Label><Select id="teacher-class" value={classId} onChange={(e) => setClassId(e.target.value)}>{myClasses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+            <div><Label htmlFor="teacher-title">Title</Label><Input id="teacher-title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Unit test next Monday" /></div>
+            <div><Label htmlFor="teacher-message">Message</Label><Textarea id="teacher-message" required rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></div>
             <Button type="submit"><Megaphone className="h-4 w-4" /> Send announcement</Button>
           </form>
         </Card>
-        <div className="space-y-3">{mine.map((a) => (<Card key={a.id} className="p-5"><p className="font-display font-bold">{a.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{a.body}</p><p className="mt-2 text-xs text-slate-400">{classes.find((c) => c.id === a.classId)?.name} · {fmtDateTime(a.createdAt)}</p></Card>))}
+        <div className="space-y-3">{mine.map((a) => (<Card key={a.id} className="p-5"><p className="font-display font-bold">{a.title}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{a.body}</p><p className="mt-2 text-xs text-slate-500">{classes.find((c) => c.id === a.classId)?.name} · {fmtDateTime(a.createdAt)}</p></Card>))}
           {mine.length === 0 && <EmptyState title="No announcements yet" body="Send your first class announcement from the form." />}</div>
       </div>
     </div>
@@ -386,8 +386,8 @@ export function TeacherProfile() {
       <Card className="max-w-lg p-6">
         <p className="font-display text-lg font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email} · Teacher · {user.department}</p>
         <form onSubmit={save} className="mt-5 space-y-4">
-          <div><Label>Full name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div><Label>Department</Label><Input value={dept} onChange={(e) => setDept(e.target.value)} /></div>
+          <div><Label htmlFor="teacher-full-name">Full name</Label><Input id="teacher-full-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div><Label htmlFor="teacher-department">Department</Label><Input id="teacher-department" value={dept} onChange={(e) => setDept(e.target.value)} /></div>
           <Button type="submit">Save profile</Button>
         </form>
       </Card>

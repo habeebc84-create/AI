@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /student/
+Disallow: /teacher/
+Disallow: /parent/
+Disallow: /admin/
+Disallow: /app
+
+Sitemap: https://focused-ai.vercel.app/sitemap.xml

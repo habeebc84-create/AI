@@ -125,7 +125,7 @@ export function ParentProgress() {
               <div><p className="text-sm text-slate-500">Average grade</p><p className="font-display text-2xl font-extrabold">{avg !== null ? `${avg}%` : '—'}</p><p className="text-xs text-slate-500">{data.length} graded assignments</p></div>
               <div><p className="text-sm text-slate-500">Focus time (total)</p><p className="font-display text-2xl font-extrabold">{focusMin} min</p><p className="text-xs text-slate-500">Session totals only — no detail shared</p></div>
             </div>
-            <div className="mt-5 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="score" fill="#6366F1" radius={[6, 6, 0, 0]} name="Score (%)" /></BarChart></ResponsiveContainer></div>
+            <div className="mt-5 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="score" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} name="Score (%)" /></BarChart></ResponsiveContainer></div>
             <div className="mt-3 space-y-2">{mine.map((a) => { const s = subs.find((x) => x.assignmentId === a.id); return (
               <div key={a.id} className="flex flex-wrap justify-between gap-2 rounded-xl bg-slate-50 px-4 py-2.5 text-sm dark:bg-navy-800">
                 <span>{a.title}</span><span>{s?.grade !== null && s?.grade !== undefined ? `Grade: ${s.grade}/${a.maxMarks}` : s?.returnedForRevision ? 'Revision requested' : s?.submittedAt ? 'Submitted — awaiting grade' : 'Not submitted yet'}</span>
@@ -190,7 +190,7 @@ export function ParentSettings() {
         <p className="text-sm text-slate-500">Send a guardian-link request for your linked child. The other guardian must already have a parent account.</p>
         <form onSubmit={submit} className="mt-3 space-y-3">
           {children.length > 1 && <div><Label htmlFor="invite-child">Child</Label><Select id="invite-child" value={childId} onChange={(event) => setChildId(event.target.value)} required><option value="">Select a child</option>{children.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</Select></div>}
-          <div><Label htmlFor="invite-email">Other guardian's email</Label><Input id="invite-email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guardian@example.com" /></div>
+          <div><Label htmlFor="invite-email">Other guardian's email</Label><Input id="invite-email" required type="email" spellCheck={false} autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="guardian@example.com" /></div>
           <Button type="submit" disabled={!children.length}>Send invitation</Button>
           {msg && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{msg}</p>}
         </form>

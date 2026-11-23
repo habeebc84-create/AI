@@ -87,7 +87,7 @@ function StudentResults({ user }: { user: User }) {
   const awaiting = subs.filter((s) => s.submittedAt && !hasGrade(s)).length
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Assessments" value={String(mine.length)} sub={`Published for ${user.grade ?? 'your class'}`} icon={BookOpen} />
         <Stat label="Graded" value={String(graded.length)} sub={`${awaiting} awaiting a grade`} icon={ClipboardCheck} />
         <Stat label="Average score" value={average === null ? '—' : `${average}%`} sub={graded.length ? 'Across graded assessments' : 'No grades yet'} icon={TrendingUp} />
@@ -117,7 +117,7 @@ function TeacherResults({ user }: { user: User }) {
     : null
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Assessments" value={String(mine.length)} sub={`${mine.filter((a) => a.status === 'published').length} published`} icon={BookOpen} />
         <Stat label="Submissions" value={String(subs.length)} sub="Submitted work received" icon={Users} />
         <Stat label="Graded" value={String(graded.length)} sub={`${subs.length - graded.length} awaiting a grade`} icon={ClipboardCheck} />
@@ -125,7 +125,7 @@ function TeacherResults({ user }: { user: User }) {
       </div>
       <section className="mt-6" aria-labelledby="results-title">
         <h2 id="results-title" className="mb-3 font-display text-lg font-bold">Assessments and grading progress</h2>
-        {mine.length === 0 ? <EmptyState title="No assessments yet" body="Create an assignment with marks and it will be tracked here." action={<Link to="/teacher/assignments/create" className="font-semibold text-royal-500 underline">Create an assignment</Link>} /> : (
+        {mine.length === 0 ? <EmptyState title="No assessments yet" body="Create an assignment with marks and it will be tracked here." action={<Link to="/teacher/assignments/create" className="font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400">Create an assignment</Link>} /> : (
           <div className="space-y-3">
             {mine.map((a) => {
               const submitted = subs.filter((s) => s.assignmentId === a.id)
@@ -152,7 +152,7 @@ function ParentResults({ user }: { user: User }) {
     : null
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Children" value={String(children.length)} sub="Linked guardian accounts" icon={Users} />
         <Stat label="Assessments" value={String(rows.length)} sub="Set for your children's classes" icon={BookOpen} />
         <Stat label="Graded results" value={String(graded.length)} sub={`${rows.filter((r) => r.sub?.submittedAt && !hasGrade(r.sub)).length} awaiting a grade`} icon={ClipboardCheck} />
@@ -160,7 +160,7 @@ function ParentResults({ user }: { user: User }) {
       </div>
       <section className="mt-6" aria-labelledby="results-title">
         <h2 id="results-title" className="mb-3 font-display text-lg font-bold">Assessment results</h2>
-        {children.length === 0 ? <EmptyState title="No children linked" body="Link a child first to see their assessment results." action={<Link to="/parent/children"><span className="font-semibold text-royal-500 underline">Go to My Children</span></Link>} /> : rows.length === 0 ? <EmptyState title="No assessments yet" body="When your children's teachers publish assessed work, it will appear here." /> : (
+        {children.length === 0 ? <EmptyState title="No children linked" body="Link a child first to see their assessment results." action={<Link to="/parent/children"><span className="font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400">Go to My Children</span></Link>} /> : rows.length === 0 ? <EmptyState title="No assessments yet" body="When your children's teachers publish assessed work, it will appear here." /> : (
           <div className="space-y-3">
             {rows.map((r) => (
               <AssessmentRow key={`${r.child.id}-${r.a.id}`} a={r.a} sub={r.sub} meta={r.child.name} href="/parent/assignments" />
@@ -182,7 +182,7 @@ function AdminResults() {
   const classes = new Set(assignments.map((a) => a.classId))
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Assessments" value={String(all.length)} sub={`${assignments.filter((a) => a.status === 'published').length} published`} icon={BookOpen} />
         <Stat label="Classes" value={String(classes.size)} sub="With assessed work" icon={Users} />
         <Stat label="Graded results" value={String(graded.length)} sub={`${submissions.filter((s) => s.submittedAt && !hasGrade(s)).length} awaiting a grade`} icon={ClipboardCheck} />

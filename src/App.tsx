@@ -1,9 +1,10 @@
 import { BrowserRouter, HashRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useCurrentUser } from './lib/store'
-import { AppShell, useFocusVisibility } from './components/layout'
+import { AppShell, HOME, useFocusVisibility } from './components/layout'
 import { Landing, Features, HowItWorks, About, Contact, Privacy, Terms, Login, Register, ForgotPassword, NotFound } from './pages/public'
 import type { Role } from './lib/types'
-import { lazy, useEffect, type ComponentType } from 'react'
+import { lazy, useEffect, type ComponentType, type ReactNode } from 'react'
+import { RouteTransition } from './components/ui'
 
 // Keep each role's pages (and the chart library they use) out of public routes.
 function pagesFrom<T extends Record<string, ComponentType>>(load: () => Promise<T>) {
@@ -65,17 +66,14 @@ const AdminAuditLogs = adminPage('AdminAuditLogs')
 function RequireAuth({ roles }: { roles?: Role[] }) {
   const user = useCurrentUser()
   if (!user) return <Navigate to="/login" replace />
-  if (roles && !roles.includes(user.role)) {
-    const home = user.role === 'student' ? '/student/dashboard' : user.role === 'teacher' ? '/teacher/dashboard' : user.role === 'parent' ? '/parent/dashboard' : '/admin/dashboard'
-    return <Navigate to={home} replace />
-  }
+  if (roles && !roles.includes(user.role)) return <Navigate to={HOME[user.role]} replace />
   return <Outlet />
 }
 
 function RoleHome() {
   const user = useCurrentUser()
   if (!user) return <Navigate to="/login" replace />
-  return <Navigate to={user.role === 'student' ? '/student/dashboard' : user.role === 'teacher' ? '/teacher/dashboard' : user.role === 'parent' ? '/parent/dashboard' : '/admin/dashboard'} replace />
+  return <Navigate to={HOME[user.role]} replace />
 }
 
 // GitHub Pages serves static files. Keep workspace routes in the URL fragment there.
@@ -89,22 +87,27 @@ function RouteScroll() {
   return null
 }
 
+function Public({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return <RouteTransition id={pathname}>{children}</RouteTransition>
+}
+
 export default function App() {
   useFocusVisibility()
   return (
     <Router>
       <RouteScroll />
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
+        <Route path="/" element={<Public><Landing /></Public>} />
+        <Route path="/features" element={<Public><Features /></Public>} />
+        <Route path="/how-it-works" element={<Public><HowItWorks /></Public>} />
+        <Route path="/about" element={<Public><About /></Public>} />
+        <Route path="/contact" element={<Public><Contact /></Public>} />
+        <Route path="/login" element={<Public><Login /></Public>} />
+        <Route path="/register" element={<Public><Register /></Public>} />
+        <Route path="/forgot-password" element={<Public><ForgotPassword /></Public>} />
+        <Route path="/privacy" element={<Public><Privacy /></Public>} />
+        <Route path="/terms" element={<Public><Terms /></Public>} />
         <Route path="/app" element={<RoleHome />} />
 
         <Route element={<RequireAuth roles={['student']} />}>
@@ -173,7 +176,7 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<Public><NotFound /></Public>} />
       </Routes>
     </Router>
   )

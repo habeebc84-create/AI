@@ -40,7 +40,7 @@ function CurrentSession() {
   return <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 border-royal-400 p-5">
     <div><h2 className="font-display font-bold">Active session</h2><p>{af.goal}</p>
       <p className="text-sm text-slate-500">{!remaining ? 'Time is up' : af.status === 'running' ? 'Running' : 'Paused'} · {formatDuration(remaining)} remaining · Tab switches: {af.visibilityCount}</p></div>
-    <Link className="font-semibold text-royal-500 underline" to="/student/focus">Return to session</Link>
+    <Link className="font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400" to="/student/focus">Return to session</Link>
   </Card>
 }
 
@@ -60,7 +60,7 @@ function StudyTasks({ assignmentId }: { assignmentId?: string | null }) {
             <span><span className="block font-semibold">{t.title}</span><span className="text-sm text-slate-500">{fmtDate(t.date)} · {t.durationMin} min</span></span>
           </label>)}
           {!tasks.length && <p className="mt-3 text-sm text-slate-500">{assignmentId ? 'No unfinished study tasks for this homework.' : 'No unfinished tasks in your study plan.'}</p>}
-          <Link to="/student/study-planner" className="mt-4 inline-block font-semibold text-royal-500 underline">Open study planner</Link>
+          <Link to="/student/study-planner" className="mt-4 inline-block font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400">Open study planner</Link>
         </Card>)
 }
 
@@ -89,11 +89,11 @@ export function StudentDashboard() {
       <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} sub="Your homework and study tasks." action={!activeFocus && <LinkButton to="/student/focus"><Play className="h-4 w-4" /> Start focus session</LinkButton>} />
       <CurrentSession />
       {nextUp && !activeFocus && (
-        <Card className="mb-4 border-royal-400/60 p-5">
+        <Card className="relative mb-6 overflow-hidden border-slate-300 p-6 before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-royal-500 dark:border-white/10 dark:before:bg-royal-400">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-royal-500">Next assignment</p>
-              <h2 className="mt-1 font-display text-lg font-bold">{nextUp.title}</h2>
+              <p className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-royal-600 dark:text-royal-400">Next assignment</p>
+              <h2 className="mt-2 font-display text-2xl font-semibold leading-tight">{nextUp.title}</h2>
               <p className="text-sm text-slate-500">{nextUp.subject} · due {fmtDateTime(nextUp.dueAt)} · {nextUp.maxMarks} marks{minsUntil(nextUp.dueAt) < 0 ? ' · overdue' : minsUntil(nextUp.dueAt) <= 48 * 60 ? ' · due soon' : ''}</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -104,23 +104,23 @@ export function StudentDashboard() {
           <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Chosen from your earliest deadline. The tutor answers from the {nextUp.subject} reference book, and the focus timer records the session for you.</p>
         </Card>
       )}
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+      <div className="stagger mb-4 grid gap-4 lg:grid-cols-2">
         <Card className="p-5"><h2 className="font-display text-lg font-bold">Homework to do</h2>
-          {pending.map((a) => <Link key={a.id} to={`/student/assignments/${a.id}`} className="mt-3 block rounded-xl border border-slate-200 px-4 py-3 hover:border-royal-500 dark:border-slate-700">
+          {pending.map((a) => <Link key={a.id} to={`/student/assignments/${a.id}`} className="mt-3 block rounded-xl border border-slate-200 px-4 py-3 transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700">
             <span className="block font-semibold">{a.title}</span><span className="text-sm text-slate-500">{a.subject} · Due {fmtDateTime(a.dueAt)}{mySubs.some((s) => s.assignmentId === a.id && s.returnedForRevision) && ' · Revision requested'}</span>
           </Link>)}
           {!pending.length && <p className="mt-3 text-sm text-slate-500">No outstanding homework.</p>}
         </Card>
         <StudyTasks />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Assignments', value: `${completed}/${mine.length}`, sub: `${rate}% complete`, icon: BookOpen },
           { label: 'Due soon (48h)', value: String(dueSoon.length), sub: overdue > 0 ? `${overdue} overdue` : 'On track', icon: Clock },
           { label: 'Focus this week', value: formatMinutes(weekMs), sub: `${focusSessions.filter((s) => s.studentId === user.id).length} sessions total`, icon: Timer },
           { label: 'Unread alerts', value: String(unread.length), sub: 'Notifications', icon: Bell },
         ].map((s) => (
-          <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-5 w-5 text-royal-500" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
+          <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-4 w-4 text-slate-500" strokeWidth={1.75} aria-hidden="true" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
         ))}
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -129,7 +129,7 @@ export function StudentDashboard() {
           <p className="text-xs text-slate-500">Minutes of completed focus sessions, last 7 days (your data).</p>
           <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weekData}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="day" /><YAxis /><Tooltip /><Bar dataKey="minutes" fill="#6366F1" radius={[6, 6, 0, 0]} /></BarChart>
+              <BarChart data={weekData}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="day" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="minutes" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} /></BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
@@ -159,7 +159,7 @@ export function StudentAssignments() {
     <div>
       <PageHeader title="My Assignments" sub={`${mine.length} published assignments for ${user.grade ?? 'your class'}.`} />
       <Card className="mb-4 flex flex-wrap gap-3 p-4">
-        <div className="relative min-w-52 flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input className="pl-9" placeholder="Search assignments…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search assignments" /></div>
+        <div className="relative min-w-52 flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" /><Input className="pl-9" placeholder="Search assignments…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search assignments" /></div>
         <Select value={subject} onChange={(e) => setSubject(e.target.value)} className="w-40" aria-label="Filter by subject"><option value="all">All subjects</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
         <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-44" aria-label="Filter by status"><option value="all">All statuses</option>{['not-started', 'in-progress', 'submitted', 'late', 'completed'].map((s) => <option key={s} value={s}>{s}</option>)}</Select>
         <Select value={sort} onChange={(e) => setSort(e.target.value as 'due' | 'subject')} className="w-40" aria-label="Sort"><option value="due">Sort: deadline</option><option value="subject">Sort: subject</option></Select>
@@ -283,7 +283,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           {book && <PdfPreview title={book.title} file={book.file} />}
           <h3 className="mt-6 font-display font-bold">Attachments</h3>
           {a.attachments.length === 0 ? <p className="mt-1 text-sm text-slate-500">No attachments.</p> : a.attachments.map((f) => (
-            <button key={f.name} onClick={() => downloadAttachment(f.name)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-royal-500 dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
+            <button key={f.name} onClick={() => downloadAttachment(f.name)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
           ))}
           {existing?.feedback && <div className="mt-6 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-900/20"><p className="font-semibold text-emerald-700 dark:text-emerald-300">Teacher feedback {existing.grade !== null && `· ${existing.grade}/${a.maxMarks}`}</p><p className="mt-1 text-sm">{existing.feedback}</p></div>}
         </Card>
@@ -291,7 +291,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           <h2 className="font-display font-bold">Your submission</h2>
           <p className="text-sm text-slate-500">Status: {existing?.status ?? 'not started'}{existing?.submittedAt ? ` · submitted ${fmtDateTime(existing.submittedAt)}` : ''}</p>
           <div className="mt-4"><Label htmlFor="submission-response">Text response</Label><Textarea id="submission-response" rows={8} disabled={locked} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your answer here…" /></div>
-          <div className="mt-4"><Label>{DEMO_MODE ? 'Attach files (PDF, DOCX, images, text — up to 2 MB of content per file)' : 'Attach up to three supported files, 2 MB each'}</Label><Input type="file" disabled={locked} multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
+          <div className="mt-4"><Label htmlFor="student-demo-mode-attach-files-pdf-docx-">{DEMO_MODE ? 'Attach files (PDF, DOCX, images, text — up to 2 MB of content per file)' : 'Attach up to three supported files, 2 MB each'}</Label><Input id="student-demo-mode-attach-files-pdf-docx-" type="file" disabled={locked} multiple onChange={(e) => void onFiles(e.target.files)} aria-label="Attach files" /></div>
           {files.map((f) => (<p key={f.name} className="mt-1 flex items-center justify-between text-sm"><span className="flex items-center gap-1"><FileText className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({(f.dataUrl || f.downloadUrl) ? 'stored' : 'listed only'})</span></span><button disabled={locked} onClick={() => setFiles(files.filter((x) => x.name !== f.name))} aria-label={`Remove ${f.name}`}><Trash2 className="h-4 w-4 text-rose-500" /></button></p>))}
           {fileNote && <p className="mt-2 text-xs text-slate-500">{fileNote}</p>}
           {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30" role="alert">{error}</p>}
@@ -425,12 +425,13 @@ function FocusDial({ planned }: { planned: number }) {
   return (
     <div className="relative flex aspect-square w-full max-w-56 items-center justify-center">
       <svg viewBox="0 0 224 224" className="h-full w-full -rotate-90" role="img" aria-label={af ? `Focus timer: ${formatDuration(remaining)} remaining` : 'Focus timer ready'}>
-        <circle cx="112" cy="112" r="100" fill="none" strokeWidth="12" className="stroke-slate-200 dark:stroke-slate-700" />
-        <circle cx="112" cy="112" r="100" fill="none" stroke="#6366F1" strokeWidth="12" strokeLinecap="round" className="progress-stroke" strokeDasharray={2 * Math.PI * 100} strokeDashoffset={2 * Math.PI * 100 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
+        <circle cx="112" cy="112" r="108" fill="none" strokeWidth="1" strokeDasharray="1 7.48" className="stroke-slate-300 dark:stroke-slate-700" />
+        <circle cx="112" cy="112" r="96" fill="none" strokeWidth="8" className="stroke-slate-200 dark:stroke-white/10" />
+        <circle cx="112" cy="112" r="96" fill="none" strokeWidth="8" strokeLinecap="round" className="progress-stroke stroke-royal-500 dark:stroke-royal-400" strokeDasharray={2 * Math.PI * 96} strokeDashoffset={2 * Math.PI * 96 * (1 - (af ? Math.min(1, elapsed / planned) : 0))} />
       </svg>
       <div className="absolute text-center">
-        <p className="font-mono text-5xl font-bold">{af ? formatDuration(remaining) : formatDuration(planned)}</p>
-        <p className="mt-1 text-sm text-slate-500">{af ? (!remaining ? 'Time is up' : af.status === 'running' ? 'Focusing…' : 'Paused') : 'Ready'}</p>
+        <p className="tabular font-display text-6xl font-normal tracking-[-0.04em]">{af ? formatDuration(remaining) : formatDuration(planned)}</p>
+        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-500">{af ? (!remaining ? 'Time is up' : af.status === 'running' ? 'Focusing…' : 'Paused') : 'Ready'}</p>
       </div>
     </div>
   )
@@ -477,7 +478,7 @@ export function FocusPage() {
           toast(result.ok ? 'Guardian link requested.' : result.error ?? 'Could not request a guardian link.', result.ok ? 'success' : 'error')
           if (result.ok) setParentEmail('')
         }}>
-          <div><Label htmlFor="focus-parent-email">Parent email</Label><Input id="focus-parent-email" type="email" required value={parentEmail} onChange={(event) => setParentEmail(event.target.value)} /></div>
+          <div><Label htmlFor="focus-parent-email">Parent email</Label><Input id="focus-parent-email" type="email" spellCheck={false} autoCapitalize="none" required value={parentEmail} onChange={(event) => setParentEmail(event.target.value)} /></div>
           <Button type="submit" variant="outline">Request guardian link</Button>
         </form>
       </Card>}
@@ -487,7 +488,7 @@ export function FocusPage() {
           {af ? (
             <div className="mt-6 w-full">
               <p className="font-semibold">{af.goal}</p>
-              {af.assignmentId && <Link className="text-sm text-royal-500 underline" to={`/student/assignments/${af.assignmentId}`}>Open homework</Link>}
+              {af.assignmentId && <Link className="text-sm text-royal-600 underline underline-offset-4 dark:text-royal-400" to={`/student/assignments/${af.assignmentId}`}>Open homework</Link>}
               <p className="text-sm text-slate-500">{af.mode} · Tab switches: {af.visibilityCount} · Away {formatDuration(af.hiddenMs / 1000)}</p>
               <div className="mt-4 flex justify-center gap-2">
                 {af.status === 'running' ? <Button onClick={pauseFocus} variant="outline"><Pause className="h-4 w-4" /> Pause</Button> : af.accumulatedMs < planned * 1000 && <Button onClick={resumeFocus}><Play className="h-4 w-4" /> Resume</Button>}
@@ -496,17 +497,17 @@ export function FocusPage() {
               <div className="mx-auto mt-5 max-w-sm text-left">
                 <Label>How focused did you feel? (optional)</Label>
                 <div className="flex gap-1" role="radiogroup" aria-label="Focus rating">
-                  {[1, 2, 3, 4, 5].map((n) => (<button key={n} onClick={() => setRating(n)} aria-label={`${n} out of 5`} className={`flex h-9 w-9 items-center justify-center rounded-lg border ${rating === n ? 'border-royal-500 bg-royal-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>{n}</button>))}
+                  {[1, 2, 3, 4, 5].map((n) => (<button key={n} type="button" role="radio" aria-checked={rating === n} onClick={() => setRating(n)} aria-label={`${n} out of 5`} className={`flex h-9 w-9 items-center justify-center rounded-lg border ${rating === n ? 'border-royal-500 bg-royal-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>{n}</button>))}
                 </div>
-                <div className="mt-3"><Label>Reflection (optional)</Label><Textarea rows={2} value={reflection} onChange={(e) => setReflection(e.target.value)} placeholder="What worked? What will you change next time?" /></div>
+                <div className="mt-3"><Label htmlFor="student-reflection-optional">Reflection (optional)</Label><Textarea id="student-reflection-optional" rows={2} value={reflection} onChange={(e) => setReflection(e.target.value)} placeholder="What worked? What will you change next time?" /></div>
               </div>
             </div>
           ) : (
             <div className="mt-6 w-full max-w-sm space-y-3 text-left">
-              <div><Label>Assignment (optional)</Label><Select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)}><option value="">No specific assignment</option>{assignments.filter((a) => a.status === 'published' && a.classId === user.classId).map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}</Select></div>
-              <div><Label>Study goal</Label><Input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Finish quadratic problem set" /></div>
-              <div><Label>Timer mode</Label><Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}><option value="pomodoro">Pomodoro — {focusPrefs.pomodoroMin} min</option><option value="short-break">Short break — {focusPrefs.shortBreakMin} min</option><option value="long-break">Long break — {focusPrefs.longBreakMin} min</option><option value="custom">Custom</option></Select></div>
-              {mode === 'custom' && <div><Label>Custom duration (minutes)</Label><Input type="number" min={5} max={180} value={customMin} onChange={(e) => setCustomMin(Number(e.target.value))} /></div>}
+              <div><Label htmlFor="focus-assignment">Assignment (optional)</Label><Select id="focus-assignment" value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)}><option value="">No specific assignment</option>{assignments.filter((a) => a.status === 'published' && a.classId === user.classId).map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}</Select></div>
+              <div><Label htmlFor="focus-goal">Study goal</Label><Input id="focus-goal" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Finish quadratic problem set" /></div>
+              <div><Label htmlFor="focus-mode">Timer mode</Label><Select id="focus-mode" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}><option value="pomodoro">Pomodoro — {focusPrefs.pomodoroMin} min</option><option value="short-break">Short break — {focusPrefs.shortBreakMin} min</option><option value="long-break">Long break — {focusPrefs.longBreakMin} min</option><option value="custom">Custom</option></Select></div>
+              {mode === 'custom' && <div><Label htmlFor="student-custom-duration-minutes">Custom duration (minutes)</Label><Input id="student-custom-duration-minutes" type="number" min={5} max={180} value={customMin} onChange={(e) => setCustomMin(Number(e.target.value))} /></div>}
               <Button onClick={start} disabled={!parentLinked} className="w-full" size="lg"><Play className="h-4 w-4" /> Start focus session</Button>
               <p className="text-xs text-slate-500">You can return to this session from Home.</p>
             </div>
@@ -599,7 +600,7 @@ export function AiTutor() {
             <span className="text-xs font-semibold text-slate-500">Help options</span>
             {([['Give a hint', 'hint'], ['Explain simply', 'explain'], ['Practice question', 'practice']] as const).map(([label, lvl]) => (
               <button key={lvl} onClick={() => ask(lastQuestion || question || `How do I start ${assignment?.title ?? 'this topic'}?`, lvl)}
-                className="rounded-full border border-royal-500/40 bg-royal-500/5 px-3 py-1 text-xs font-semibold text-royal-600 hover:border-royal-500 dark:text-royal-400">{label}</button>
+                className="rounded-full border border-royal-500/40 bg-royal-500/5 px-3 py-1 text-xs font-semibold text-royal-600 transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:text-royal-400">{label}</button>
             ))}
           </div>
           <form onSubmit={submit} className="mt-3 flex gap-2">
@@ -648,8 +649,8 @@ export function StudyPlanner() {
     <div>
       <PageHeader title="Study Planner" sub="Plan study blocks before your deadlines." action={<Button onClick={generate}><Sparkles className="h-4 w-4" /> Generate my week</Button>} />
       <Card className="mb-4 flex flex-wrap items-end gap-4 p-5">
-        <div><Label>Study from (hour)</Label><Input type="number" min={6} max={22} value={startHour} onChange={(e) => setStartHour(Number(e.target.value))} className="w-24" /></div>
-        <div><Label>Study until (hour)</Label><Input type="number" min={7} max={23} value={endHour} onChange={(e) => setEndHour(Number(e.target.value))} className="w-24" /></div>
+        <div><Label htmlFor="plan-start-hour">Study from (hour)</Label><Input id="plan-start-hour" type="number" min={6} max={22} value={startHour} onChange={(e) => setStartHour(Number(e.target.value))} className="w-24" /></div>
+        <div><Label htmlFor="plan-end-hour">Study until (hour)</Label><Input id="plan-end-hour" type="number" min={7} max={23} value={endHour} onChange={(e) => setEndHour(Number(e.target.value))} className="w-24" /></div>
         <p className="text-sm text-slate-500">Blocks are at most 50 minutes, with a 10-minute break between them. Reschedule by ticking a block done or regenerating.</p>
       </Card>
       {!plan || plan.items.length === 0 ? <EmptyState title="No study plan yet" body="Choose your study hours and generate a plan." action={<Button onClick={generate}>Generate my week</Button>} /> : (
@@ -657,7 +658,7 @@ export function StudyPlanner() {
           <Card key={it.id} className="flex items-center justify-between gap-3 p-4">
             <label className="flex cursor-pointer items-center gap-3">
               <input type="checkbox" checked={it.done} onChange={() => togglePlanItem(it.id)} className="h-5 w-5 accent-indigo-600" aria-label={`Mark ${it.title} done`} />
-              <span className={it.done ? 'line-through text-slate-400' : ''}><span className="block font-semibold">{it.title}</span><span className="text-sm text-slate-500">{fmtDate(it.date)} · {fmtMin(it.startMin)} · {it.durationMin} min</span></span>
+              <span className={it.done ? 'line-through text-slate-500 decoration-slate-400' : ''}><span className="block font-semibold">{it.title}</span><span className="text-sm text-slate-500">{fmtDate(it.date)} · {fmtMin(it.startMin)} · {it.durationMin} min</span></span>
             </label>
             <LinkButton to={it.assignmentId ? `/student/assignments/${it.assignmentId}` : '/student/assignments'} size="sm" variant="outline">Open</LinkButton>
           </Card>
@@ -731,7 +732,7 @@ export function StudentAnalytics() {
     const doneCount = mySubs.filter((s) => s.submittedAt && new Date(s.submittedAt).toDateString() === day.toDateString()).length
     return { day: day.toLocaleDateString(undefined, { weekday: 'short' }), minutes: Math.round(mins), submitted: doneCount }
   })
-  const COLORS = ['#6366F1', '#22D3EE', '#10B981', '#F59E0B', '#F43F5E']
+  const COLORS = ['#C2461E', '#C8962B', '#3F8A6B', '#6E6759', '#8C3B4A']
   return (
     <div>
       <PageHeader title="My Analytics" sub="Review your submissions, grades and focus time." />
@@ -741,10 +742,10 @@ export function StudentAnalytics() {
         <Card className="p-5"><p className="text-sm text-slate-500">Focus sessions</p><p className="mt-1 font-display text-3xl font-extrabold">{focusSessions.filter((s) => s.studentId === user.id).length}</p><p className="text-xs text-slate-500">{formatMinutes(focusSessions.filter((s) => s.studentId === user.id).reduce((t, s) => t + s.activeMs, 0))} total</p></Card>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card className="p-5"><h2 className="font-display font-bold">Focus & submissions — last 7 days</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><LineChart data={weekData}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="day" /><YAxis /><Tooltip /><Line type="monotone" dataKey="minutes" stroke="#6366F1" strokeWidth={2} name="Focus minutes" /><Line type="monotone" dataKey="submitted" stroke="#10B981" strokeWidth={2} name="Submitted" /></LineChart></ResponsiveContainer></div></Card>
+        <Card className="p-5"><h2 className="font-display font-bold">Focus & submissions — last 7 days</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><LineChart data={weekData}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="day" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Line type="monotone" dataKey="minutes" stroke="#C2461E" strokeWidth={2} name="Focus minutes" /><Line type="monotone" dataKey="submitted" stroke="#3F8A6B" strokeWidth={2} name="Submitted" /></LineChart></ResponsiveContainer></div></Card>
         <Card className="p-5"><h2 className="font-display font-bold">Workload by subject</h2>
           {bySubject.length === 0 ? <EmptyState title="No data yet" body="Subject workload appears once assignments exist." /> : (
-            <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={bySubject} dataKey="total" nameKey="subject" cx="50%" cy="50%" outerRadius={90} label>{bySubject.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
+            <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={bySubject} dataKey="total" nameKey="subject" cx="50%" cy="50%" outerRadius={90} label>{bySubject.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /></PieChart></ResponsiveContainer></div>
           )}
           <ul className="mt-2 space-y-1 text-sm">{bySubject.map((b, i) => <li key={b.subject}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />{b.subject}: {b.done}/{b.total} done</li>)}</ul>
         </Card>
@@ -761,7 +762,7 @@ export function StudentAnalytics() {
                 <span><strong>{g.subject}</strong> · {g.avg}% average across {g.graded} graded {g.graded === 1 ? 'result' : 'results'}</span>
                 <span className="flex gap-3">
                   {g.book && <PdfPreview title={g.book.title} file={g.book.file} />}
-                  <Link to="/student/assessments" className="font-semibold text-royal-500 underline">Practise</Link>
+                  <Link to="/student/assessments" className="font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400">Practise</Link>
                 </span>
               </li>
             ))}
@@ -788,8 +789,8 @@ export function StudentProfile() {
       <Card className="max-w-lg p-6">
         <div className="flex items-center gap-4"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-royal-500 text-xl font-bold text-white">{user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span><div><p className="font-display text-lg font-bold">{user.name}</p><p className="text-sm text-slate-500">{user.email} · {user.role}</p><p className="text-sm text-slate-500">{user.school} · {user.grade}</p></div></div>
         <form onSubmit={save} className="mt-6 space-y-4">
-          <div><Label>Full name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div><Label>Subject preferences (comma separated)</Label><Input value={subjects} onChange={(e) => setSubjects(e.target.value)} /></div>
+          <div><Label htmlFor="student-full-name">Full name</Label><Input id="student-full-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div><Label htmlFor="student-subject-preferences-comma-separa">Subject preferences (comma separated)</Label><Input id="student-subject-preferences-comma-separa" value={subjects} onChange={(e) => setSubjects(e.target.value)} /></div>
           <Button type="submit">Save profile</Button>
         </form>
       </Card>
@@ -809,9 +810,9 @@ export function StudentSettings() {
         <Card className="p-6">
           <h2 className="font-display font-bold">Focus durations</h2>
           <div className="mt-4 space-y-3">
-            <div><Label>Pomodoro (minutes)</Label><Input type="number" min={5} max={120} value={focusPrefs.pomodoroMin} onChange={(e) => setFocusPrefs({ pomodoroMin: Number(e.target.value) })} /></div>
-            <div><Label>Short break (minutes)</Label><Input type="number" min={1} max={30} value={focusPrefs.shortBreakMin} onChange={(e) => setFocusPrefs({ shortBreakMin: Number(e.target.value) })} /></div>
-            <div><Label>Long break (minutes)</Label><Input type="number" min={5} max={60} value={focusPrefs.longBreakMin} onChange={(e) => setFocusPrefs({ longBreakMin: Number(e.target.value) })} /></div>
+            <div><Label htmlFor="student-pomodoro-minutes">Pomodoro (minutes)</Label><Input id="student-pomodoro-minutes" type="number" min={5} max={120} value={focusPrefs.pomodoroMin} onChange={(e) => setFocusPrefs({ pomodoroMin: Number(e.target.value) })} /></div>
+            <div><Label htmlFor="student-short-break-minutes">Short break (minutes)</Label><Input id="student-short-break-minutes" type="number" min={1} max={30} value={focusPrefs.shortBreakMin} onChange={(e) => setFocusPrefs({ shortBreakMin: Number(e.target.value) })} /></div>
+            <div><Label htmlFor="student-long-break-minutes">Long break (minutes)</Label><Input id="student-long-break-minutes" type="number" min={5} max={60} value={focusPrefs.longBreakMin} onChange={(e) => setFocusPrefs({ longBreakMin: Number(e.target.value) })} /></div>
           </div>
           <h3 className="mt-6 font-display font-bold">Focus data & consent</h3>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">The timer records start and end times, pauses, and when you leave the tab.</p>

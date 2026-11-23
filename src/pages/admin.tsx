@@ -14,15 +14,15 @@ export function AdminDashboard() {
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
   return (
     <div>
-      <PageHeader title="Administrator Dashboard" sub={institutionName} action={<Link to="/admin/users" className="font-semibold text-royal-500 underline">Manage accounts</Link>} />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <PageHeader title="Administrator Dashboard" sub={institutionName} action={<Link to="/admin/users" className="font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400">Manage accounts</Link>} />
+      <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Users', value: String(users.length), sub: `${plural(byRole('student'), 'student')} · ${plural(byRole('teacher'), 'teacher')} · ${plural(byRole('parent'), 'parent')} · ${plural(byRole('admin'), 'admin')}`, icon: Users },
           { label: 'Classes', value: String(classes.length), sub: 'Across all grades', icon: BookOpen },
           { label: 'Assignments', value: String(assignments.length), sub: `${assignments.filter((a) => a.status === 'published').length} published`, icon: FileText },
           { label: 'Focus sessions', value: String(focusSessions.length), sub: 'Completed sessions', icon: BarChart3 },
         ].map((s) => (
-          <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-5 w-5 text-royal-500" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
+          <Card key={s.label} className="p-5"><div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{s.label}</p><s.icon className="h-4 w-4 text-slate-500" strokeWidth={1.75} aria-hidden="true" /></div><p className="mt-2 font-display text-3xl font-extrabold">{s.value}</p><p className="text-xs text-slate-500">{s.sub}</p></Card>
         ))}
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -36,7 +36,7 @@ export function AdminDashboard() {
         </Card>
         <Card className="p-5">
           <h2 className="font-display font-bold">Completion by class</h2>
-          <div className="mt-4 h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={classes.map((c) => ({ name: c.name, rate: completionRate(submissions.filter((s) => s.submittedAt && !s.returnedForRevision && c.studentIds.includes(s.studentId) && assignments.some((a) => a.id === s.assignmentId && a.classId === c.id && a.status === 'published')).length, Math.max(1, c.studentIds.length * assignments.filter((a) => a.classId === c.id && a.status === 'published').length)) }))}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} name="Completion %" /></BarChart></ResponsiveContainer></div>
+          <div className="mt-4 h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={classes.map((c) => ({ name: c.name, rate: completionRate(submissions.filter((s) => s.submittedAt && !s.returnedForRevision && c.studentIds.includes(s.studentId) && assignments.some((a) => a.id === s.assignmentId && a.classId === c.id && a.status === 'published')).length, Math.max(1, c.studentIds.length * assignments.filter((a) => a.classId === c.id && a.status === 'published').length)) }))}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} name="Completion %" /></BarChart></ResponsiveContainer></div>
         </Card>
       </div>
     </div>
@@ -68,7 +68,7 @@ export function AdminUsers() {
       {showAdd && <Card className="mb-5 max-w-2xl p-5">
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="account-name">Full name</Label><Input id="account-name" name="name" required /></div>
-          <div><Label htmlFor="account-email">Email</Label><Input id="account-email" name="email" type="email" required /></div>
+          <div><Label htmlFor="account-email">Email</Label><Input id="account-email" name="email" type="email" spellCheck={false} autoCapitalize="none" required /></div>
           <div><Label htmlFor="account-password">{DEMO_MODE ? 'Demo password' : 'Account password'}</Label><Input id="account-password" name="password" type="password" autoComplete="new-password" minLength={DEMO_MODE ? 6 : 8} maxLength={128} required /></div>
           <div><Label htmlFor="account-role">Role</Label><Select id="account-role" value={role} onChange={(event) => setRole(event.target.value as Role)}>{roles.map((value) => <option key={value}>{value}</option>)}</Select></div>
           {role === 'student' && <div><Label htmlFor="account-class">Class</Label><Select id="account-class" name="classId"><option value="">Assign later</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>}
@@ -172,7 +172,7 @@ export function AdminAnalytics() {
         <Card className="p-5"><p className="text-sm text-slate-500">Focus sessions</p><p className="mt-1 font-display text-3xl font-extrabold">{focusSessions.length}</p></Card>
         <Card className="p-5"><p className="text-sm text-slate-500">Active users</p><p className="mt-1 font-display text-3xl font-extrabold">{users.length}</p></Card>
       </div>
-      <Card className="mt-4 p-5"><h2 className="font-display font-bold">Submission rate by assignment</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis domain={[0, 100]} /><Tooltip /><Bar dataKey="rate" fill="#6366F1" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div></Card>
+      <Card className="mt-4 p-5"><h2 className="font-display font-bold">Submission rate by assignment</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="name" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={36} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="rate" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} /></BarChart></ResponsiveContainer></div></Card>
     </div>
   )
 }
@@ -183,7 +183,7 @@ export function AdminAiSettings() {
       <PageHeader title="AI Tutor" />
       <Card className="max-w-xl p-5">
         <p>The tutor uses reference books included with FocusEd AI.</p>
-        <Link to="/admin/dashboard" className="mt-3 inline-block font-semibold text-royal-500 underline">Back to dashboard</Link>
+        <Link to="/admin/dashboard" className="mt-3 inline-block font-semibold text-royal-600 underline underline-offset-4 dark:text-royal-400">Back to dashboard</Link>
       </Card>
     </div>
   )
@@ -244,7 +244,7 @@ export function AdminAuditLogs() {
       <PageHeader title="Audit Logs" sub="Sign-ins, account changes and other recorded actions." />
       <Card className="p-6">
         {auditLogs.length === 0 ? <EmptyState title="No audit events yet" body="Actions such as sign-ins, assignment publishing and role changes are recorded here." /> : (
-          <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Audit log table"><table className="w-full text-left text-sm">
             <thead><tr className="border-b border-slate-200 dark:border-slate-700"><th className="py-2 pr-4">Time</th><th className="py-2 pr-4">Actor</th><th className="py-2 pr-4">Action</th><th className="py-2">Detail</th></tr></thead>
             <tbody>{auditLogs.map((l) => (<tr key={l.id} className="border-b border-slate-100 dark:border-slate-800"><td className="py-2 pr-4 whitespace-nowrap">{fmtDateTime(l.at)}</td><td className="py-2 pr-4">{users.find((u) => u.id === l.actorId)?.name ?? l.actorId}</td><td className="py-2 pr-4 font-mono text-xs">{l.action}</td><td className="py-2">{l.detail}</td></tr>))}</tbody>
           </table></div>

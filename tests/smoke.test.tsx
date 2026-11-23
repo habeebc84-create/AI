@@ -3,7 +3,7 @@ import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../src/App'
 import { useStore } from '../src/lib/store'
-import { Landing } from '../src/pages/public'
+import { Landing, Login } from '../src/pages/public'
 
 describe('app smoke test', () => {
   it('landing page renders the hero headline', () => {
@@ -46,4 +46,14 @@ it('shows a warning when a coursework store write is rejected by the browser', (
     write.mockRestore()
     act(() => useStore.setState({ focusLockNotice: false }))
   }
+})
+
+it('gives every public page a distinct document title', () => {
+  render(<MemoryRouter initialEntries={['/login']}><Login /></MemoryRouter>)
+  expect(document.title).toBe('Log in · FocusEd AI')
+})
+
+it('keeps the default title on the landing page', () => {
+  render(<MemoryRouter><Landing /></MemoryRouter>)
+  expect(document.title).toBe('FocusEd AI | Homework and Study Planning')
 })
