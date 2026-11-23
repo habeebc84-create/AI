@@ -44,7 +44,8 @@ export interface Assignment {
   rubric?: string
   status: AssignmentStatus
   latePolicy: 'accept' | 'accept-penalty' | 'reject'
-  attachments: { name: string; size: number; type: string }[]
+  /** Teacher-supplied files. In laptop mode `downloadUrl` points at the shared server copy; in the demo `dataUrl` keeps the contents in this browser; seeded samples carry neither. */
+  attachments: { name: string; size: number; type: string; dataUrl?: string; downloadUrl?: string }[]
   createdAt: string
 }
 

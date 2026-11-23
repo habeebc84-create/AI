@@ -53,6 +53,27 @@ access, allow the server on the private network. If devices cannot reach one
 another, check whether the Wi-Fi isolates clients and ask the campus network
 administrator about the demo network.
 
+To find the laptop's address yourself on Windows, run `ipconfig` in
+PowerShell and read the **IPv4 Address** under the Wi-Fi adapter (for
+example `192.168.1.20`). Others on the same Wi-Fi then open
+`http://<that address>:8787/login`. On macOS run `ipconfig getifaddr en0`;
+on Linux run `hostname -I`.
+
+## What syncs
+
+Everyone signed in to the laptop address shares one workspace. Teacher
+assignment attachments and student submission files are stored in the
+laptop database, and each open page checks the laptop every 3 seconds, so
+new assignments, submissions, files and grades appear for other users
+within a few seconds without a manual refresh. A student can open only their
+own submission files and the attachments of published assignments in their
+class; the owning teacher can open submitted files; a linked parent sees
+grades and class attachments, not a child's uploaded files.
+
+The online demo website (the Vercel build) is a separate, browser-local
+demo: its records and uploads stay in each browser and never sync with
+other people or with this laptop.
+
 Log in as the administrator and use **User Management** to create accounts.
 Use **Class Management** to assign a teacher and enrol students. Parents
 accept a student's request under **My Children**. On later starts, the

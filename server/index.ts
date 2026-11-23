@@ -164,6 +164,30 @@ function permitted(actor: User, action: ActionName, args: unknown[]): boolean {
   return action === 'inviteGuardian'
 }
 
+/**
+ * Who may open a stored file:
+ * - a submission file: the submitting student, or the owning teacher once it is submitted for review;
+ * - an assignment attachment: the owning teacher, and — once published — students in that class
+ *   and parents with an accepted link to one of those students.
+ * A student never reaches another student's submission files.
+ */
+function findReadableFile(actor: User, downloadUrl: string): StoredFile | undefined {
+  const state = get()
+  const submission = state.submissions.find((item) => item.files.some((file) => file.downloadUrl === downloadUrl) &&
+    (item.studentId === actor.id || (actor.role === 'teacher' && !!item.submittedAt && !item.returnedForRevision && canAccessAssignment(actor, item.assignmentId))))
+  if (submission) return submission.files.find((file) => file.downloadUrl === downloadUrl)
+  const assignment = state.assignments.find((item) => item.attachments.some((file) => file.downloadUrl === downloadUrl))
+  if (!assignment) return undefined
+  const childIds = actor.role === 'parent'
+    ? new Set(state.guardianLinks.filter((link) => link.parentId === actor.id && link.status === 'accepted').map((link) => link.studentId))
+    : new Set<string>()
+  const allowed = (actor.role === 'teacher' && assignment.teacherId === actor.id)
+    || (assignment.status === 'published' && (
+      (actor.role === 'student' && actor.classId === assignment.classId)
+      || (actor.role === 'parent' && state.users.some((user) => childIds.has(user.id) && user.classId === assignment.classId))))
+  return allowed ? assignment.attachments.find((file) => file.downloadUrl === downloadUrl) as StoredFile : undefined
+}
+
 class InvalidFiles extends Error {}
 function normalizeFiles(input: StoredFile[], previous: StoredFile[]) {
   return input.map((file) => {
@@ -221,9 +245,7 @@ const server = Bun.serve({
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/files/')) {
       if (!actor) return fail('Sign in first.', 401)
-      const file = get().submissions.find((submission) => submission.files.some((item) => item.downloadUrl === url.pathname) &&
-        (submission.studentId === actor.id || (actor.role === 'teacher' && !!submission.submittedAt && !submission.returnedForRevision && canAccessAssignment(actor, submission.assignmentId))))?.files
-        .find((item) => item.downloadUrl === url.pathname)
+      const file = findReadableFile(actor, url.pathname)
       const content = file && readFile.get(url.pathname.split('/').at(-1)!)
       if (!file || !content) return missing()
       return new Response(new Uint8Array(content.bytes), { headers: {
@@ -283,6 +305,19 @@ const server = Bun.serve({
           if (!outcome.ok) throw new InvalidFiles(outcome.error ?? 'Could not save the submission.')
           const kept = new Set((args[3] as StoredFile[]).map((item) => item.downloadUrl))
           for (const file of prior) if (file.downloadUrl && !kept.has(file.downloadUrl)) deleteFile.run(file.downloadUrl.split('/').at(-1)!)
+          return outcome
+        }
+        if (action === 'createAssignment' || action === 'updateAssignment') {
+          const index = action === 'createAssignment' ? 0 : 1
+          const input = args[index] as { attachments?: StoredFile[] }
+          const prior = action === 'updateAssignment' ? get().assignments.find((item) => item.id === args[0])?.attachments ?? [] : []
+          if (input.attachments) {
+            input.attachments = normalizeFiles(input.attachments, prior as StoredFile[])
+            const kept = new Set(input.attachments.map((item) => item.downloadUrl))
+            for (const file of prior) if (file.downloadUrl && !kept.has(file.downloadUrl)) deleteFile.run(file.downloadUrl.split('/').at(-1)!)
+          }
+          const outcome = fn(...args)
+          if (action === 'createAssignment' && !outcome) throw new InvalidFiles('Choose a class assigned to your account.')
           return outcome
         }
         const outcome = fn(...args)

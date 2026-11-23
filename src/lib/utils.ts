@@ -99,6 +99,35 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type })
 }
 
+/** Human file size: "<1 KB" for tiny files instead of a misleading "0 KB". */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return '<1 KB'
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/**
+ * Save an attachment for the user. Laptop mode streams the shared server copy
+ * (the server checks who may open it); the demo rebuilds the file from its
+ * browser-stored contents; a sample with no stored contents downloads as a
+ * plain-text note that says so.
+ */
+export function saveStoredFile(file: StoredFile, fallbackNote: string) {
+  const link = document.createElement('a')
+  if (file.downloadUrl) {
+    link.href = file.downloadUrl
+    link.download = file.name
+    link.click()
+    return
+  }
+  const blob = file.dataUrl ? dataUrlToBlob(file.dataUrl) : new Blob([fallbackNote], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = file.dataUrl ? file.name : file.name.replace(/\.[^.]+$/, '') + '.txt'
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export function validateUploadFile(file: { name: string; size: number; type: string }): string | null {
   if (!ALLOWED_FILE_TYPES.includes(file.type)) return `“${file.name}” is not an allowed type. Allowed: PDF, DOCX, images, plain text.`
   if (file.size > MAX_FILE_MB * 1024 * 1024) return `“${file.name}” exceeds the ${MAX_FILE_MB} MB limit.`

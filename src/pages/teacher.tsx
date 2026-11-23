@@ -2,11 +2,11 @@ import { runAction } from '../lib/laptop'
 import { useState, type FormEvent } from 'react'
 import { Notifications } from '../components/notifications'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { BookOpen, Users, ClipboardList, BarChart3, Megaphone, Plus, Send, Download, CheckCircle2, RotateCcw, FileText } from 'lucide-react'
+import { BookOpen, Users, ClipboardList, BarChart3, Megaphone, Plus, Send, Download, CheckCircle2, RotateCcw, FileText, Trash2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { useStore, useCurrentUser } from '../lib/store'
+import { useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { WrappedTick, useCategoryAxis, PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, EmptyState, Modal, toast } from '../components/ui'
-import { completionRate, fmtDateTime, localDateTimeInput, validateUploadFile, dataUrlToBlob, type StoredFile } from '../lib/utils'
+import { completionRate, fmtDateTime, localDateTimeInput, validateUploadFile, readFileAsDataUrl, saveStoredFile, formatFileSize, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import type { Assignment } from '../lib/types'
 
 export function TeacherDashboard() {
@@ -126,6 +126,37 @@ export function TeacherAssignments() {
   )
 }
 
+/** File picker for teacher assignment attachments: up to three files, 2 MB each, contents kept so students download the real file. */
+function AssignmentFilesInput({ id, files, onChange, onError }: { id: string; files: StoredFile[]; onChange: (files: StoredFile[]) => void; onError: (message: string) => void }) {
+  const add = async (list: FileList | null) => {
+    if (!list?.length) return
+    onError('')
+    const picked = Array.from(list)
+    if (files.length + picked.length > 3) { onError('Attach up to three files.'); return }
+    const next = [...files]
+    for (const file of picked) {
+      const problem = validateUploadFile(file)
+      if (problem) { onError(problem); return }
+      if (file.size > MAX_STORED_FILE_BYTES) { onError(`“${file.name}” is over 2 MB. Attach files of up to 2 MB each.`); return }
+      try { next.push({ name: file.name, size: file.size, type: file.type, dataUrl: await readFileAsDataUrl(file) }) } catch { onError(`Could not read “${file.name}”.`); return }
+    }
+    onChange(next)
+  }
+  return (
+    <div>
+      <Label htmlFor={id}>Attachments for students (optional)</Label>
+      <Input id={id} type="file" multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,image/*,application/pdf,text/plain" onChange={(e) => { void add(e.target.files); e.target.value = '' }} />
+      <p className="mt-1 text-xs text-slate-500">Up to three files, 2 MB each: PDF, DOCX, images or plain text.{DEMO_MODE ? ' In this demo, files stay in this browser only.' : ' Files are stored on the host laptop and shared with the class when published.'}</p>
+      {files.map((file, index) => (
+        <p key={file.downloadUrl ?? file.name + index} className="mt-1 flex items-center justify-between gap-2 text-sm">
+          <span className="flex min-w-0 items-center gap-1"><FileText className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="truncate">{file.name}</span> <span className="shrink-0 text-xs text-slate-500">({formatFileSize(file.size)})</span></span>
+          <button type="button" onClick={() => onChange(files.filter((_, i) => i !== index))} aria-label={`Remove ${file.name}`}><Trash2 className="h-4 w-4 text-rose-500" aria-hidden="true" /></button>
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export function TeacherAssignmentCreate() {
   const user = useCurrentUser()!
   const { classes } = useStore()
@@ -141,6 +172,7 @@ export function TeacherAssignmentCreate() {
   const [format, setFormat] = useState('Text response or PDF')
   const [rubric, setRubric] = useState('')
   const [latePolicy, setLatePolicy] = useState<'accept' | 'accept-penalty' | 'reject'>('accept-penalty')
+  const [attachments, setAttachments] = useState<StoredFile[]>([])
   const [error, setError] = useState('')
   const myClasses = classes.filter((c) => c.teacherId === user.id)
   const subjects = [...new Set(['Mathematics', 'Science', 'English', 'History', 'Computer Science', ...myClasses.map((item) => item.subject)])]
@@ -153,8 +185,8 @@ export function TeacherAssignmentCreate() {
       setError('Enter a valid deadline and a maximum mark between 1 and 100.')
       return
     }
-    const id = await runAction('createAssignment', { title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy })
-    if (!id) { setError('Choose a class assigned to your account.'); return }
+    const id = await runAction('createAssignment', { title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy, attachments })
+    if (!id) { setError(DEMO_MODE && attachments.length ? 'Could not save. The attachments may not fit in this browser’s storage, or the class is not assigned to you.' : 'Could not save. Check the class and attachments, then try again.'); return }
     toast(publish ? 'Assignment published.' : 'Draft saved.')
     navigate(`/teacher/assignments/${id}`)
   }
@@ -181,6 +213,7 @@ export function TeacherAssignmentCreate() {
           </div>
           <div><Label htmlFor="teacher-submission">Submission format</Label><Input id="teacher-submission" value={format} onChange={(e) => setFormat(e.target.value)} /></div>
           <div><Label htmlFor="teacher-rubric">Rubric (optional)</Label><Textarea id="teacher-rubric" rows={2} value={rubric} onChange={(e) => setRubric(e.target.value)} placeholder="How will this be marked?" /></div>
+          <AssignmentFilesInput id="assignment-files" files={attachments} onChange={setAttachments} onError={setError} />
           <div><Label htmlFor="teacher-late">Late submission policy</Label><Select id="teacher-late" value={latePolicy} onChange={(e) => setLatePolicy(e.target.value as typeof latePolicy)}><option value="accept">Accept late work</option><option value="accept-penalty">Accept late with penalty</option><option value="reject">Do not accept late work</option></Select></div>
           {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{error}</p>}
           <div className="flex gap-2"><Button type="submit" variant="outline">Save draft</Button><Button type="submit" value="publish"><Send className="h-4 w-4" /> Publish assignment</Button></div>
@@ -198,19 +231,25 @@ export function TeacherAssignmentDetail() {
   const [editing, setEditing] = useState(false)
   const [instructions, setInstructions] = useState('')
   const [referenceNotes, setReferenceNotes] = useState('')
+  const [files, setFiles] = useState<StoredFile[]>([])
+  const [fileError, setFileError] = useState('')
   if (!a) return <EmptyState title="Assignment not found" body="It may belong to another teacher." action={<LinkButton to="/teacher/assignments">Back</LinkButton>} />
   const submitted = submissions.filter((s) => s.assignmentId === a.id && s.submittedAt && !s.returnedForRevision)
   const graded = submitted.filter((s) => s.grade !== null)
   const enrolled = classes.find((c) => c.id === a.classId)?.studentIds.length ?? 0
   return (
     <div>
-      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={async () => { if (!await runAction('publishAssignment', a.id)) return; toast('Assignment published.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setEditing(true) }}>Edit instructions and notes</Button></div>} />
+      <PageHeader title={a.title} sub={`${a.subject} · ${a.maxMarks} marks · Due ${fmtDateTime(a.dueAt)}`} action={<div className="flex gap-2">{a.status === 'draft' && <Button onClick={async () => { if (!await runAction('publishAssignment', a.id)) return; toast('Assignment published.') }}><Send className="h-4 w-4" /> Publish</Button>}<Button variant="outline" onClick={() => { setInstructions(a.instructions); setReferenceNotes(a.referenceNotes ?? ''); setFiles(a.attachments); setFileError(''); setEditing(true) }}>Edit details and files</Button></div>} />
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
           <div className="flex gap-2">{statusBadge(a.status)}<Badge color="indigo">{submitted.length} submitted</Badge><Badge color="emerald">{graded.length} graded</Badge></div>
           <p className="mt-4 whitespace-pre-line">{a.instructions}</p>
           {a.referenceNotes && <div className="mt-3"><h3 className="font-display font-bold">Teacher reference notes</h3><p className="whitespace-pre-wrap break-words">{a.referenceNotes}</p></div>}
           {a.rubric && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm dark:bg-navy-800"><strong>Rubric:</strong> {a.rubric}</p>}
+          <h3 className="mt-6 font-display font-bold">Attachments</h3>
+          {a.attachments.length === 0 ? <p className="mt-1 text-sm text-slate-500">No attachments.</p> : a.attachments.map((f, index) => (
+            <button key={f.downloadUrl ?? f.name + index} onClick={() => saveStoredFile(f, `${a.title}\n\nThis sample attachment has no stored contents. Only its name, size and type are kept.`)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" aria-hidden="true" /> {f.name} <span className="text-xs text-slate-500">({formatFileSize(f.size)})</span></button>
+          ))}
           <h3 className="mt-6 font-display font-bold">Submissions</h3>
           {submitted.length === 0 ? <p className="mt-2 text-sm text-slate-500">No submissions ready for review.</p> : submitted.map((s) => {
             const st = users.find((u) => u.id === s.studentId)
@@ -230,11 +269,13 @@ export function TeacherAssignmentDetail() {
           <p className="text-sm text-slate-600 dark:text-slate-300">{a.latePolicy === 'accept' ? 'Late work accepted.' : a.latePolicy === 'accept-penalty' ? 'Late work accepted with a penalty.' : 'Late work not accepted.'}</p>
         </Card>
       </div>
-      <Modal open={editing} onClose={() => setEditing(false)} title="Edit instructions and reference notes">
+      <Modal open={editing} onClose={() => setEditing(false)} title="Edit instructions, notes and files">
         <Label htmlFor="edit-instructions">Instructions</Label>
         <Textarea id="edit-instructions" rows={5} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
         <div className="mt-3"><Label htmlFor="edit-reference-notes">Reference notes for students</Label><Textarea id="edit-reference-notes" rows={5} value={referenceNotes} onChange={(e) => setReferenceNotes(e.target.value)} /></div>
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button><Button onClick={async () => { if (!await runAction('updateAssignment', a.id, { instructions, referenceNotes: referenceNotes.trim() })) return; setEditing(false); toast('Assignment text updated.') }}>Save changes</Button></div>
+        <div className="mt-3"><AssignmentFilesInput id="edit-assignment-files" files={files} onChange={setFiles} onError={setFileError} /></div>
+        {fileError && <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/30" role="alert">{fileError}</p>}
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button><Button onClick={async () => { if (!await runAction('updateAssignment', a.id, { instructions, referenceNotes: referenceNotes.trim(), attachments: files })) return; setEditing(false); toast('Assignment updated.') }}>Save changes</Button></div>
       </Modal>
     </div>
   )
@@ -275,22 +316,7 @@ export function TeacherSubmissionDetail() {
   const a = s ? assignments.find((x) => x.id === s.assignmentId && x.teacherId === user.id) : undefined
   if (!s?.submittedAt || s.returnedForRevision || !a) return <EmptyState title="Submission not found" body="It may belong to another teacher's class." action={<LinkButton to="/teacher/submissions">Back</LinkButton>} />
   const st = users.find((u) => u.id === s.studentId)
-  const downloadFile = (f: StoredFile) => {
-    if (f.downloadUrl) {
-      const link = document.createElement('a')
-      link.href = f.downloadUrl
-      link.download = f.name
-      link.click()
-      return
-    }
-    // Files uploaded since local storage was introduced carry their real
-    // contents (stored on this computer); older or oversized files are
-    // metadata-only, and the download says so plainly.
-    const blob = f.dataUrl
-      ? dataUrlToBlob(f.dataUrl)
-      : new Blob([`File: ${f.name}\nSubmitted by ${st?.name} for ${a.title}.\n\nThis file's contents were not stored on this computer (over the 2 MB local limit, or a sample file). Only its name, size and type are kept.`], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = f.dataUrl ? f.name : f.name.replace(/\.[^.]+$/, '') + '.txt'; el.click(); URL.revokeObjectURL(url)
-  }
+  const downloadFile = (f: StoredFile) => saveStoredFile(f, `File: ${f.name}\nSubmitted by ${st?.name} for ${a.title}.\n\nThis file's contents were not stored (over the 2 MB limit, or a sample file). Only its name, size and type are kept.`)
   return (
     <div>
       <PageHeader title={`${st?.name} — ${a.title}`} sub={`Submitted ${s.submittedAt ? fmtDateTime(s.submittedAt) : 'not yet'}${s.isLate ? ' · late' : ''} · ${a.maxMarks} marks available`} />
@@ -300,7 +326,7 @@ export function TeacherSubmissionDetail() {
           <p className="mt-3 whitespace-pre-line text-slate-700 dark:text-slate-200">{s.text || '(No text response.)'}</p>
           <h3 className="mt-5 font-display font-bold">Attached files</h3>
           {s.files.length === 0 ? <p className="mt-1 text-sm text-slate-500">No files attached.</p> : s.files.map((f) => (
-            <button key={f.name} onClick={() => downloadFile(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
+            <button key={f.name} onClick={() => downloadFile(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" aria-hidden="true" /> {f.name} <span className="text-xs text-slate-500">({formatFileSize(f.size)})</span></button>
           ))}
           <p className="mt-4 text-xs text-slate-500">File downloads are validated: only the owning teacher and the submitting student can access a submission. An attachment with stored contents downloads as the original file. Sample metadata downloads as a text note.</p>
         </Card>

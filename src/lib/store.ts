@@ -158,9 +158,10 @@ const safeLocalStorage = {
   },
 }
 
-function filesFitBudget(submissions: Submission[], existing: Submission | undefined, files: Submission['files']) {
+function filesFitBudget(submissions: Submission[], existing: Submission | undefined, files: Submission['files'], assignments: Assignment[] = []) {
   const otherBytes = submissions.reduce((total, submission) =>
     total + (submission.id === existing?.id ? 0 : storedFileBytes(submission.files)), 0)
+    + assignments.reduce((total, assignment) => total + storedFileBytes(assignment.attachments), 0)
   return otherBytes + storedFileBytes(files) <= LOCAL_FILE_BUDGET_BYTES
 }
 
@@ -300,6 +301,7 @@ export const useStore = create<AppState>()(
 
       createAssignment: (a) => {
         if (currentActor(get(), 'teacher')?.id !== a.teacherId || !get().classes.some((item) => item.id === a.classId && item.teacherId === a.teacherId)) return ''
+        if (!filesFitBudget(get().submissions, undefined, a.attachments ?? [], get().assignments)) return ''
         const id = uid('a')
         const assignment: Assignment = { ...a, id, attachments: a.attachments ?? [], createdAt: new Date().toISOString() }
         set((s) => ({ assignments: [assignment, ...s.assignments] }))
@@ -326,7 +328,7 @@ export const useStore = create<AppState>()(
         if (existing?.submittedAt && !existing.returnedForRevision) {
           return { ok: false, error: 'This submission is awaiting review or has already been graded.' }
         }
-        if (!filesFitBudget(submissions, existing, files)) return { ok: false, error: fileBudgetError }
+        if (!filesFitBudget(submissions, existing, files, get().assignments)) return { ok: false, error: fileBudgetError }
         if (existing) {
           set((s) => ({ submissions: s.submissions.map((x) => (x.id === existing.id ? { ...x, text, files, status: 'in-progress', updatedAt: new Date().toISOString() } : x)) }))
         } else {
@@ -347,7 +349,7 @@ export const useStore = create<AppState>()(
         if (existing?.submittedAt && !existing.returnedForRevision) {
           return { ok: false, error: 'This submission is awaiting review or has already been graded.' }
         }
-        if (!filesFitBudget(get().submissions, existing, files)) return { ok: false, error: fileBudgetError }
+        if (!filesFitBudget(get().submissions, existing, files, get().assignments)) return { ok: false, error: fileBudgetError }
         const nowIso = new Date().toISOString()
         if (existing) {
           set((s) => ({ submissions: s.submissions.map((x) => (x.id === existing.id ? { ...x, text, files, status: late ? 'late' : 'submitted', submittedAt: nowIso, isLate: late, grade: null, returnedForRevision: false, updatedAt: nowIso } : x)) }))

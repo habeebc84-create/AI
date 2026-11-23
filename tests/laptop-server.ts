@@ -130,6 +130,49 @@ try {
   assert.equal((await guardian.state()).submissions[0].grade, 9)
   await guardian.file(file, 404)
 
+  // Teacher attachments are stored on the laptop and shared with the class, never as client-side samples.
+  const sheet = { name: 'worksheet.txt', type: 'text/plain', size: 9, dataUrl: 'data:text/plain;base64,' + Buffer.from('worksheet').toString('base64') }
+  const { result: draftId } = await teacher.action('createAssignment', {
+    title: 'Worksheet assignment', instructions: 'Use the worksheet.', description: '', subject: 'Mathematics', teacherId, classId,
+    dueAt: new Date(Date.now() + 86400000).toISOString(), maxMarks: 20, submissionFormat: 'Text', status: 'draft', latePolicy: 'accept', attachments: [sheet],
+  })
+  const teacherCopy = (await teacher.state()).assignments.find((item: { id: string }) => item.id === draftId)
+  const sheetUrl = teacherCopy.attachments[0].downloadUrl
+  assert.match(sheetUrl, /^\/api\/files\//)
+  assert.equal(Object.hasOwn(teacherCopy.attachments[0], 'dataUrl'), false)
+  assert.equal(await teacher.file(sheetUrl), 'worksheet')
+  assert.equal((await first.student.state()).assignments.some((item: { id: string }) => item.id === draftId), false)
+  await first.student.file(sheetUrl, 404)
+  await teacher.action('publishAssignment', draftId)
+  const studentCopy = (await first.student.state()).assignments.find((item: { id: string }) => item.id === draftId)
+  assert.equal(studentCopy.attachments[0].downloadUrl, sheetUrl)
+  assert.equal(await first.student.file(sheetUrl), 'worksheet')
+  assert.equal(await second.student.file(sheetUrl), 'worksheet')
+  assert.equal(await guardian.file(sheetUrl), 'worksheet')
+  await unrelatedTeacher.file(sheetUrl, 404)
+  await anonymous.file(sheetUrl, 401)
+  const { id: _copyId, createdAt: _copyCreated, ...copyInput } = teacherCopy
+  await teacher.request('actions/createAssignment', [{ ...copyInput, attachments: [{ ...sheet, dataUrl: 'data:text/plain;base64,bm9wZQ==' }] }], 422)
+  await teacher.request('actions/updateAssignment', [draftId, { attachments: [{ name: 'forged.txt', type: 'text/plain', size: 4, downloadUrl: file }] }], 422)
+  // Two students submit at the same moment; the teacher sees both, each student sees only their own.
+  const both = await Promise.all([first, second].map((item, index) => item.student.action('submitAssignment', draftId, item.studentId, 'Answer ' + index,
+    [{ name: `answer-${index}.txt`, type: 'text/plain', size: 8, dataUrl: 'data:text/plain;base64,' + Buffer.from('answer-' + index).toString('base64') }])))
+  assert(both.every((item) => item.result.ok))
+  const review = (await teacher.state()).submissions.filter((item: { assignmentId: string }) => item.assignmentId === draftId)
+  assert.equal(review.length, 2)
+  for (const [index, item] of [first, second].entries()) {
+    const own = (await item.student.state()).submissions.filter((entry: { assignmentId: string }) => entry.assignmentId === draftId)
+    assert.equal(own.length, 1)
+    assert.equal(await item.student.file(own[0].files[0].downloadUrl), 'answer-' + index)
+    assert.equal(await teacher.file(own[0].files[0].downloadUrl), 'answer-' + index)
+  }
+  const secondFile = review.find((item: { studentId: string }) => item.studentId === second.studentId).files[0].downloadUrl
+  await first.student.file(secondFile, 404)
+  await guardian.file(secondFile, 404)
+  await teacher.action('updateAssignment', draftId, { attachments: [] })
+  await first.student.file(sheetUrl, 404)
+  console.log('Teacher attachments, simultaneous submissions and cross-user visibility passed.')
+
   await first.student.action('startFocus', assignmentId, 'Practice', 'custom', 600)
   for (let count = 0; count < 4; count++) {
     await first.student.action('recordVisibility', true)
@@ -142,9 +185,9 @@ try {
 
   await stop()
   await start()
-  assert.equal((await teacher.state()).submissions.length, 100)
+  assert.equal((await teacher.state()).submissions.length, 102)
   assert.equal(await teacher.file(file), 'test')
-  assert.equal((await guardian.state()).submissions[0].grade, 9)
+  assert.equal((await guardian.state()).submissions.find((item: { id: string }) => item.id === first.submission.id).grade, 9)
   console.log('Restart, role boundaries, private attachments and guardian unlock passed.')
 } finally {
   await stop()

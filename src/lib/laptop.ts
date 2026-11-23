@@ -92,7 +92,7 @@ export async function initializeLaptop() {
   const backgroundRefresh = () => {
     if (!pending && !document.hidden) void refresh().catch(() => {})
   }
-  window.setInterval(backgroundRefresh, 5000)
+  window.setInterval(backgroundRefresh, 3000)
   document.addEventListener('visibilitychange', backgroundRefresh)
   await refresh().catch(() => {})
 }

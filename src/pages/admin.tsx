@@ -29,7 +29,7 @@ export function AdminDashboard() {
         <Card className="p-5">
           <h2 className="font-display font-bold">System status</h2>
           <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {DEMO_MODE ? 'Browser-local storage' : 'Shared workspace stored on the host laptop'}</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {DEMO_MODE ? 'Browser-local storage: nothing syncs between users or devices' : 'Shared workspace stored on the host laptop. The online demo website is separate and does not sync'}</li>
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {DEMO_MODE ? 'File storage: up to 2 MB per file, 3 MB total' : 'Up to three attachments per submission, 2 MB per file'}</li>
             <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {submissions.filter((s) => s.submittedAt).length} submissions stored · {focusSessions.length} focus sessions stored</li>
           </ul>

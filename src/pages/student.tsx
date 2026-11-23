@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { PdfPreview } from '../components/pdf-preview'
 import { FOCUS_LOSS_LIMIT, useStore, useCurrentUser, DEMO_MODE } from '../lib/store'
 import { PageHeader, Button, LinkButton, Card, Input, Label, Textarea, Select, Badge, statusBadge, ProgressRing, EmptyState, Modal, toast } from '../components/ui'
-import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
+import { completionRate, localDateKey, fmtDate, fmtDateTime, formatDuration, formatMinutes, minsUntil, validateUploadFile, buildStudyPlan, uid, activeElapsedMs, readFileAsDataUrl, saveStoredFile, formatFileSize, MAX_STORED_FILE_BYTES, type StoredFile } from '../lib/utils'
 import { generateQuiz, type TutorLevel } from '../lib/ai'
 import { REFERENCE_BOOKS } from '../lib/reference'
 import type { Assignment, User } from '../lib/types'
@@ -204,11 +204,7 @@ function AssignmentDetailForm({ id }: { id?: string }) {
   const book = REFERENCE_BOOKS.find((item) => item.subject === a.subject)
   const late = new Date() > new Date(a.dueAt)
   const locked = Boolean(existing?.submittedAt && !existing.returnedForRevision)
-  const downloadAttachment = (name: string) => {
-    const blob = new Blob([`${a.title}\n${a.subject} · ${a.description}\n\nInstructions:\n${a.instructions}\n\n(Sample file generated from the assignment record.)`], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const el = document.createElement('a'); el.href = url; el.download = name.replace(/\.[^.]+$/, '') + '.txt'; el.click(); URL.revokeObjectURL(url)
-  }
+  const downloadAttachment = (f: StoredFile) => saveStoredFile(f, `${a.title}\n${a.subject} · ${a.description}\n\nInstructions:\n${a.instructions}\n\n(Sample attachment: the teacher's original file is not stored, so this note was generated from the assignment record.)`)
   const onFiles = async (fl: FileList | null) => {
     if (!fl) return
     setError('')
@@ -282,8 +278,8 @@ function AssignmentDetailForm({ id }: { id?: string }) {
           {a.referenceNotes && <section className="mt-6"><h3 className="font-display font-bold">Teacher reference notes</h3><p className="mt-2 whitespace-pre-wrap break-words">{a.referenceNotes}</p></section>}
           {book && <PdfPreview title={book.title} file={book.file} />}
           <h3 className="mt-6 font-display font-bold">Attachments</h3>
-          {a.attachments.length === 0 ? <p className="mt-1 text-sm text-slate-500">No attachments.</p> : a.attachments.map((f) => (
-            <button key={f.name} onClick={() => downloadAttachment(f.name)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" /> {f.name} <span className="text-xs text-slate-500">({Math.round(f.size / 1024)} KB)</span></button>
+          {a.attachments.length === 0 ? <p className="mt-1 text-sm text-slate-500">No attachments.</p> : a.attachments.map((f, index) => (
+            <button key={f.downloadUrl ?? f.name + index} onClick={() => downloadAttachment(f)} className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-slate-400 hover:bg-slate-50 dark:hover:border-slate-500 dark:hover:bg-white/[0.03] dark:border-slate-700"><Download className="h-4 w-4" aria-hidden="true" /> {f.name} <span className="text-xs text-slate-500">({formatFileSize(f.size)})</span></button>
           ))}
           {existing?.feedback && <div className="mt-6 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-900/20"><p className="font-semibold text-emerald-700 dark:text-emerald-300">Teacher feedback {existing.grade !== null && `· ${existing.grade}/${a.maxMarks}`}</p><p className="mt-1 text-sm">{existing.feedback}</p></div>}
         </Card>

@@ -21,6 +21,7 @@ const assignment = z.object({
   subject: name, classId: id, teacherId: id, dueAt: date, maxMarks: z.number().int().min(1).max(100),
   submissionFormat: name, rubric: notes.optional(), status: z.enum(['draft', 'published']),
   latePolicy: z.enum(['accept', 'accept-penalty', 'reject']),
+  attachments: z.array(file).max(3).optional(),
 })
 const focusMinutes = z.number().int().min(1).max(180)
 export const loginSchema = z.tuple([email, text(128).min(1)])
@@ -31,7 +32,7 @@ export const actions = {
   saveInstitutionName: z.tuple([name]),
   updateProfile: z.tuple([id, z.object({ name: name.optional(), subjects: z.array(name).max(20).optional(), department: text(120).optional() })]),
   createAssignment: z.tuple([assignment]),
-  updateAssignment: z.tuple([id, assignment.pick({ instructions: true, referenceNotes: true }).partial()]),
+  updateAssignment: z.tuple([id, assignment.pick({ instructions: true, referenceNotes: true, attachments: true }).partial()]),
   publishAssignment: z.tuple([id]),
   saveDraft: submission,
   submitAssignment: submission,
