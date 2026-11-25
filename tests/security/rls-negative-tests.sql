@@ -96,6 +96,17 @@ select 'NEG-12 FAIL: unrelated guardian link visible' as result, id
 from public.guardian_links
 where student_id = '55555555-5555-5555-5555-555555555555';
 
+-- NEG-13: authenticated users cannot forge accepted guardian links.
+-- The INSERT must fail with insufficient_privilege (42501); if it succeeds,
+-- immediately roll back and treat this as a security failure.
+insert into public.guardian_links (guardian_id, student_id, relationship, status)
+values ('11111111-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'parent', 'accepted');
+
+-- NEG-14: users cannot elevate their profile role to teacher.
+-- The UPDATE must fail with insufficient_privilege (42501).
+update public.profiles set role = 'teacher'
+where id = '11111111-1111-1111-1111-111111111111';
+
 -- ===========================================================================
 -- POSITIVE controls (same session, Aarav). These MUST return rows — if a
 -- positive control returns 0, the policy is too strict, not just secure.

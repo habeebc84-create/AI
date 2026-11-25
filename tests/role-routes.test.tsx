@@ -67,8 +67,9 @@ describe('every role page renders without runtime errors', () => {
     const errors: unknown[] = []
     const spy = vi.spyOn(console, 'error').mockImplementation((...args) => { errors.push(args) })
     try {
-      render(<MemoryRouter initialEntries={[path]}><Routes><Route path={pattern ?? path} element={<Page />} /></Routes></MemoryRouter>)
-      expect(document.querySelector('div')).toBeTruthy()
+      const { container } = render(<MemoryRouter initialEntries={[path]}><Routes><Route path={pattern ?? path} element={<Page />} /></Routes></MemoryRouter>)
+      expect(container.textContent?.trim()).not.toBe('')
+      expect(container.querySelector('main, [role="main"], h1, h2')).toBeTruthy()
     } finally {
       spy.mockRestore()
     }
