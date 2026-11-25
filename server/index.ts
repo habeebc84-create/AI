@@ -134,6 +134,11 @@ const adminActions = new Set<ActionName>(['addAccount', 'addClass', 'enrollStude
 
 function permitted(actor: User, action: ActionName, args: unknown[]): boolean {
   const state = get()
+  if (action === 'addAccount') {
+    if (actor.role === 'admin') return true
+    const [name, email, password, role, classId] = args as [string, string, string, string, string]
+    return actor.role === 'teacher' && role === 'student' && state.classes.some((room) => room.id === classId && room.teacherId === actor.id)
+  }
   if (adminActions.has(action)) return actor.role === 'admin'
   if (parentActions.has(action)) return actor.role === 'parent' && (action !== 'acceptGuardian'
     || state.guardianLinks.some((link) => link.id === args[0] && link.parentId === actor.id && link.status === 'pending'))
