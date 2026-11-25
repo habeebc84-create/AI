@@ -52,6 +52,7 @@ export interface AppState extends SeedData {
   addAccount: (name: string, email: string, password: string, role: Role, classId: string) => ActionResult
   addClass: (name: string, grade: string, subject: string, teacherId: string) => ActionResult
   enrollStudent: (classId: string, studentId: string) => ActionResult
+  assignParentToStudent: (parentId: string, studentId: string) => ActionResult
   currentUserId: string | null
   focusLosses: Record<string, number>
   focusLockNotice: boolean
@@ -188,7 +189,6 @@ export function persistedFields(s: AppState) {
     focusSessions: s.focusSessions, notifications: s.notifications, announcements: s.announcements,
     conversations: s.conversations, studyPlans: s.studyPlans, guardianLinks: s.guardianLinks,
     currentUserId: s.currentUserId, focusLosses: s.focusLosses, aiConfig: s.aiConfig, auditLogs: s.auditLogs,
-    focusEvents: s.focusEvents, activeFocus: s.activeFocus, focusPrefs: s.focusPrefs,
   }
 }
 
@@ -260,8 +260,6 @@ export const useStore = create<AppState>()(
         const state = get()
         const actor = currentActor(state, 'admin') ?? currentActor(state, 'teacher')
         if (!actor) return { ok: false, error: 'Only a principal or an assigned teacher can add accounts.' }
-        const teacherAddingStudent = actor.role === 'teacher'
-        if (teacherAddingStudent && role !== 'student') return { ok: false, error: 'Teachers can only add student accounts.' }
         const address = email.trim().toLowerCase()
         if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) || password.length < 6) {
           return { ok: false, error: 'Enter a name, a valid email and a demo password of at least six characters.' }
@@ -269,12 +267,30 @@ export const useStore = create<AppState>()(
         if (state.users.some((user) => user.email.toLowerCase() === address)) return { ok: false, error: 'That email already has an account.' }
         const classroom = classId && role === 'student' ? state.classes.find((item) => item.id === classId) : undefined
         if (role === 'student' && classId && !classroom) return { ok: false, error: 'Choose an existing class.' }
-        if (teacherAddingStudent && (!classroom || classroom.teacherId !== actor.id)) {
-          return { ok: false, error: 'Choose a class assigned to your teacher account.' }
+        if (actor.role === 'teacher') {
+          if (role !== 'student') return { ok: false, error: 'Teachers can only add student accounts.' }
+          if (!classroom || classroom.teacherId !== actor.id) return { ok: false, error: 'Choose a class assigned to your teacher account.' }
         }
         const user: User = { id: uid('u'), name: name.trim(), email: address, password, role, school: state.institutionName, classId: classroom?.id, grade: classroom?.grade, createdAt: new Date().toISOString() }
         set({ users: [...state.users, user], classes: state.classes.map((item) => item.id === classroom?.id ? { ...item, studentIds: [...item.studentIds, user.id] } : item) })
         get().audit(actor.id, 'account.create', `Added ${user.name} as ${role}.`)
+        return { ok: true }
+      },
+      assignParentToStudent: (parentId, studentId) => {
+        const state = get()
+        const actor = currentActor(state, 'admin') ?? currentActor(state, 'teacher')
+        if (!actor) return { ok: false, error: 'Only a principal or an assigned teacher can link guardians.' }
+        const student = state.users.find((user) => user.id === studentId && user.role === 'student')
+        const parent = state.users.find((user) => user.id === parentId && user.role === 'parent')
+        if (!student || !parent) return { ok: false, error: 'Choose an existing student and parent account.' }
+        if (actor.role === 'teacher' && !state.classes.some((room) => room.teacherId === actor.id && room.studentIds.includes(studentId))) {
+          return { ok: false, error: 'Choose a student in one of your classes.' }
+        }
+        if (state.guardianLinks.some((g) => g.parentId === parent.id && g.studentId === studentId)) {
+          return { ok: false, error: 'This parent is already linked to that student.' }
+        }
+        set((s) => ({ guardianLinks: [...s.guardianLinks, { id: uid('g'), parentId, studentId, status: 'accepted', createdAt: new Date().toISOString() }] }))
+        get().audit(actor.id, 'guardian.link', `Linked ${parent.name} to ${student.name}.`)
         return { ok: true }
       },
       addClass: (name, grade, subject, teacherId) => {

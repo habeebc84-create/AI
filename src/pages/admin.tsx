@@ -72,6 +72,7 @@ export function AdminUsers() {
           <div><Label htmlFor="account-password">{DEMO_MODE ? 'Demo password' : 'Account password'}</Label><Input id="account-password" name="password" type="password" autoComplete="new-password" minLength={DEMO_MODE ? 6 : 8} maxLength={128} required /></div>
           <div><Label htmlFor="account-role">Role</Label><Select id="account-role" value={role} onChange={(event) => setRole(event.target.value as Role)}>{roles.map((value) => <option key={value}>{value}</option>)}</Select></div>
           {role === 'student' && <div><Label htmlFor="account-class">Class</Label><Select id="account-class" name="classId"><option value="">Assign later</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>}
+          {role !== 'student' && <p className="sm:col-span-2 text-sm text-slate-500">Teacher and parent accounts are created without a class. Assign students to a teacher through the class form, and link parents to students from the teacher's Students page.</p>}
           {error && <p className="text-sm text-rose-600 sm:col-span-2" role="alert">{error}</p>}
           <div className="sm:col-span-2"><Button type="submit">Create account</Button></div>
         </form>
@@ -80,8 +81,8 @@ export function AdminUsers() {
       {!list.length && <EmptyState title="No accounts in this role" body="Add an account or choose another role." />}
       <div className="space-y-2">{list.map((u) => (
         <Card key={u.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div className="min-w-0"><p className="font-semibold">{u.name}</p><p className="break-words text-sm text-slate-500">{u.email}{u.grade && ` · ${u.grade}`}</p></div>
-          <Badge color={u.role === 'admin' ? 'rose' : u.role === 'teacher' ? 'indigo' : u.role === 'parent' ? 'cyan' : 'slate'}>{u.role}</Badge>
+          <div className="min-w-0"><p className="font-semibold">{u.name}</p><p className="break-words text-sm text-slate-500">{u.email}{u.grade && ` · ${u.grade}`}{u.role === 'teacher' && u.department && ` · ${u.department}`}</p></div>
+          <div className="flex items-center gap-2"><Badge color={u.role === 'admin' ? 'rose' : u.role === 'teacher' ? 'indigo' : u.role === 'parent' ? 'cyan' : 'slate'}>{u.role}</Badge>{u.role === 'teacher' && <span className="text-xs text-slate-500">{classes.filter((c) => c.teacherId === u.id).length} class(es)</span>}</div>
         </Card>
       ))}</div>
     </div>
