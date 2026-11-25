@@ -136,8 +136,9 @@ function permitted(actor: User, action: ActionName, args: unknown[]): boolean {
   const state = get()
   if (action === 'addAccount') {
     if (actor.role === 'admin') return true
-    const [name, email, password, role, classId] = args as [string, string, string, string, string]
-    return actor.role === 'teacher' && role === 'student' && state.classes.some((room) => room.id === classId && room.teacherId === actor.id)
+    const role = args[3]
+    const classId = args[4]
+    return actor.role === 'teacher' && role === 'student' && typeof classId === 'string' && state.classes.some((room) => room.id === classId && room.teacherId === actor.id)
   }
   if (adminActions.has(action)) return actor.role === 'admin'
   if (parentActions.has(action)) return actor.role === 'parent' && (action !== 'acceptGuardian'
