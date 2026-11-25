@@ -6,89 +6,74 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/*
-  FocusEd design tokens — "Paper & Red Pen"
-  Warm paper and ink neutrals, one confident accent (the teacher's red pen),
-  a serif display face for editorial hierarchy and a quiet grotesk for UI.
-  The palettes below deliberately re-map Tailwind's slate / indigo / cyan /
-  navy scales so every existing utility in the app inherits the new system.
-*/
+/* FocusEd's new "Field Notes" theme: botanical green, chalk paper and brass. */
 @theme {
   --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
-  /* Warm neutral ramp (replaces cool slate) */
-  --color-slate-50: #F8F6F1;
-  --color-slate-100: #EFEBE3;
-  --color-slate-200: #E3DED3;
-  --color-slate-300: #CCC5B6;
-  --color-slate-400: #A39B8A;
-  --color-slate-500: #6E6759;
-  --color-slate-600: #575146;
-  --color-slate-700: #403B33;
-  --color-slate-800: #2A2722;
-  --color-slate-900: #1C1A17;
-  --color-slate-950: #121110;
+  /* Chalk and green-ink neutral ramp */
+  --color-slate-50: #F5F8F4;
+  --color-slate-100: #EAF0E9;
+  --color-slate-200: #D8E2D8;
+  --color-slate-300: #B9C9BD;
+  --color-slate-400: #8CA094;
+  --color-slate-500: #5F7568;
+  --color-slate-600: #465C50;
+  --color-slate-700: #30463B;
+  --color-slate-800: #22372E;
+  --color-slate-900: #172A22;
+  --color-slate-950: #0D1C16;
 
-  /* Accent: red pen (replaces indigo / royal) */
-  --color-royal-400: #E8724A;
-  --color-royal-500: #B8421C;
-  --color-royal-600: #B43F19;
-  --color-indigo-50: #FCF0EA;
-  --color-indigo-100: #F9DDD0;
-  --color-indigo-200: #F2B9A3;
-  --color-indigo-300: #F09A7A;
-  --color-indigo-400: #E8724A;
-  --color-indigo-500: #B8421C;
-  --color-indigo-600: #B43F19;
-  --color-indigo-700: #933315;
-  --color-indigo-800: #742A14;
-  --color-indigo-900: #4A1D0F;
-  --color-indigo-950: #2A1007;
+  /* Primary: evergreen */
+  --color-royal-400: #72D1AA;
+  --color-royal-500: #237B5D;
+  --color-royal-600: #17664C;
+  --color-royal-700: #12513D;
 
-  /* Secondary: library green (replaces cyan) */
-  --color-cyan-50: #EDF5F1;
-  --color-cyan-100: #D5E8DF;
-  --color-cyan-300: #8CC2AA;
-  --color-cyan-400: #6FB396;
-  --color-cyan-500: #3F8A6B;
-  --color-cyan-600: #2F7358;
-  --color-cyan-700: #245C46;
-  --color-cyan-900: #143426;
-  --color-cyan-accent: #3F8A6B;
+  /* Secondary: soft sage for charts and supporting accents */
+  --color-cyan-50: #ECF5EF;
+  --color-cyan-100: #D7EBDD;
+  --color-cyan-300: #9CCBAD;
+  --color-cyan-400: #78B88F;
+  --color-cyan-500: #538F6B;
+  --color-cyan-600: #3F7455;
+  --color-cyan-700: #305C43;
+  --color-cyan-900: #1E392A;
+  --color-cyan-accent: #538F6B;
 
   /* Ink surfaces for dark mode (replaces navy) */
-  --color-navy-950: #121110;
-  --color-navy-900: #1A1916;
-  --color-navy-800: #25231F;
-  --color-mist: #F4F1EA;
+  --color-navy-950: #0D1713;
+  --color-navy-900: #14221B;
+  --color-navy-800: #203329;
+  --color-mist: #F2F6F0;
 
   --radius-xl: 0.625rem;
   --radius-2xl: 0.875rem;
 
   --ease-out-soft: cubic-bezier(0.22, 0.8, 0.24, 1);
-  --shadow-sm: 0 1px 0 rgb(28 26 23 / 0.04), 0 1px 2px rgb(28 26 23 / 0.04);
-  --shadow-xl: 0 18px 40px -18px rgb(28 26 23 / 0.35);
-  --shadow-2xl: 0 30px 60px -24px rgb(28 26 23 / 0.45);
+  --shadow-sm: 0 1px 0 rgb(23 42 34 / 0.04), 0 1px 2px rgb(23 42 34 / 0.04);
+  --shadow-xl: 0 18px 40px -18px rgb(23 42 34 / 0.28);
+  --shadow-2xl: 0 30px 60px -24px rgb(23 42 34 / 0.38);
 }
 
 :root {
-  --paper: #F4F1EA;
+  color-scheme: light;
+  --paper: #F2F6F0;
   --surface: #FFFFFF;
-  --ink: #1C1A17;
-  --rule: #E3DED3;
-  --accent: #B8421C;
-  --highlight: #F6DE7A;
+  --ink: #172A22;
+  --rule: #D8E2D8;
+  --accent: #17664C;
+  --highlight: #F1D18A;
 }
 html.dark {
   color-scheme: dark;
-  --paper: #121110;
-  --surface: #1A1916;
-  --ink: #EFEBE3;
-  --rule: #2E2B25;
-  --accent: #E8724A;
-  --highlight: #6B5A18;
+  --paper: #0D1713;
+  --surface: #14221B;
+  --ink: #ECF3EB;
+  --rule: #2B4034;
+  --accent: #72D1AA;
+  --highlight: #66552D;
 }
 
 html { scroll-padding-top: 5rem; -webkit-text-size-adjust: 100%; }
@@ -127,15 +112,15 @@ a { text-underline-offset: 3px; text-decoration-thickness: 1px; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #D6CFC1; border-radius: 8px; border: 2px solid var(--paper); }
-.dark ::-webkit-scrollbar-thumb { background: #3A362F; }
+::-webkit-scrollbar-thumb { background: #B9C9BD; border-radius: 8px; border: 2px solid var(--paper); }
+.dark ::-webkit-scrollbar-thumb { background: #385244; }
 
-/* Notebook rule texture used sparingly (hero, login aside) */
+/* Fine paper texture used sparingly on empty states and hero surfaces. */
 .paper-rules {
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in oklab, var(--rule) 75%, transparent) 31px, color-mix(in oklab, var(--rule) 75%, transparent) 32px);
 }
 
-/* Highlighter mark behind a word */
+/* Soft brass marker behind an emphasized word */
 .mark {
   background: linear-gradient(transparent 60%, var(--highlight) 60%, var(--highlight) 92%, transparent 92%);
   padding: 0 0.06em;
@@ -200,10 +185,10 @@ select:not([multiple]):not([size]) {
    (only where the element did not set its own dark colour). */
 @layer utilities {
   .dark .text-slate-500:not([class*="dark:text-"]) { color: #9A9282; }
-  .dark .text-slate-400:not([class*="dark:text-"]) { color: #A39B8A; }
+  .dark .text-slate-400:not([class*="dark:text-"]) { color: #A6B8AA; }
   .dark .text-royal-500:not([class*="dark:text-"]),
   .dark .text-royal-600:not([class*="dark:text-"]),
-  .dark .hover\:text-royal-500:not([class*="dark:hover:text-"]):hover { color: #E8724A; }
+  .dark .hover\:text-royal-500:not([class*="dark:hover:text-"]):hover { color: #72D1AA; }
 }
 
 /* Web interface guideline polish */
@@ -238,4 +223,34 @@ dialog { overscroll-behavior: contain; }
 /* Public header stays pinned while the page body changes (backdrop-blur safe). */
 ::view-transition-group(public-header) { animation: none; z-index: 100; }
 ::view-transition-old(public-header) { display: none; }
+
+/* App-wide library navigation: a stable evergreen rail in both themes. */
+.workspace-sidebar {
+  color: #ECF3EB;
+  background: #17372B;
+  border-color: rgb(255 255 255 / 0.1);
+}
+.dark .workspace-sidebar { background: #10251C; }
+.workspace-sidebar .text-slate-500,
+.workspace-sidebar .text-slate-600 { color: #B4C8BA; }
+.workspace-sidebar .text-slate-900,
+.workspace-sidebar [class~="dark:text-slate-50"],
+.workspace-sidebar [class~="text-slate-800"] { color: #F5F8F4; }
+.workspace-sidebar .text-royal-600,
+.workspace-sidebar [class~="dark:text-royal-400"] { color: #F1D18A; }
+.workspace-sidebar .border-slate-200,
+.workspace-sidebar [class~="dark:border-white/[0.07]"] { border-color: rgb(255 255 255 / 0.14); }
+.workspace-sidebar .bg-white { background-color: rgb(255 255 255 / 0.12); }
+.workspace-sidebar a[aria-current="page"] { color: #FFFFFF; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1); }
+.workspace-sidebar a[aria-current="page"] span:first-child { background: #F1D18A; }
+.workspace-sidebar button:hover,
+.workspace-sidebar a:not([aria-current="page"]):hover { background-color: rgb(255 255 255 / 0.08); }
+.workspace-sidebar .workspace-logo-mark rect { fill: #ECF3EB; }
+.workspace-sidebar .workspace-logo-mark path { stroke: #17372B; }
+.dark .workspace-sidebar .workspace-logo-mark path { stroke: #10251C; }
+.workspace-sidebar .workspace-logo-mark circle { fill: #F1D18A; }
+
+/* Brass is reserved for high-value interactions and completion details. */
+.theme-brass { color: #76520D; }
+.dark .theme-brass { color: #F1D18A; }
 ::view-transition-new(public-header) { animation: none; }
