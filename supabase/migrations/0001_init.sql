@@ -40,6 +40,24 @@ as $$
   select role from public.profiles where id = auth.uid();
 $$;
 
+-- A profile is user-editable, but authorization roles are not. Only trusted
+-- server-side operations using the service role may change a profile role.
+create or replace function public.prevent_profile_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.role is distinct from old.role
+    and coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'Profile roles can only be changed by an administrator.'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
 -- Institutions the calling user belongs to (any role).
 create or replace function public.my_institution_ids()
 returns setof uuid
@@ -138,6 +156,10 @@ create table public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create trigger profiles_prevent_role_change
+  before update of role on public.profiles
+  for each row execute function public.prevent_profile_role_change();
 
 create table public.institution_memberships (
   id uuid primary key default gen_random_uuid(),
@@ -679,9 +701,9 @@ create policy "guardian_links_select" on public.guardian_links
     or public.is_admin_of((select institution_id from public.institution_memberships
                             where user_id = student_id limit 1)));
 create policy "guardian_links_insert" on public.guardian_links
-  for insert with check (guardian_id = auth.uid() or student_id = auth.uid());
+  for insert with check (false);
 create policy "guardian_links_update" on public.guardian_links
-  for update using (guardian_id = auth.uid() or student_id = auth.uid());
+  for update using (false) with check (false);
 
 -- Role invitations: admins of the institution manage; invitee reads own.
 create policy "invitations_select_admin" on public.role_invitations
@@ -699,8 +721,13 @@ create policy "subjects_select_member" on public.subjects
 create policy "subjects_write_teacher_admin" on public.subjects
   for all using (
     public.is_admin_of(institution_id)
-    or (public.current_role() = 'teacher'
-        and institution_id in (select public.my_institution_ids())));
+    or exists (
+      select 1 from public.institution_memberships m
+      where m.user_id = auth.uid()
+        and m.institution_id = subjects.institution_id
+        and m.role = 'teacher'
+        and m.status = 'active'
+    ));
 
 -- Assignments: teachers see their own; students see published assignments
 -- for their classes (or explicitly targeted); guardians see their children's;
