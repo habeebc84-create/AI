@@ -129,7 +129,7 @@ export function StudentDashboard() {
           <p className="text-xs text-slate-500">Minutes of completed focus sessions, last 7 days (your data).</p>
           <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weekData}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="day" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Bar dataKey="minutes" fill="#C2461E" radius={[4, 4, 0, 0]} maxBarSize={44} /></BarChart>
+              <BarChart data={weekData}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#B9C9BD" strokeOpacity={0.35} /><XAxis dataKey="day" tick={{ fill: "#5F7568", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#5F7568", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(95,117,104,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #D8E2D8", boxShadow: "0 12px 24px -16px rgba(23,42,34,.2)", fontSize: 13 }} /><Bar dataKey="minutes" fill="#237B5D" radius={[4, 4, 0, 0]} maxBarSize={44} /></BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
@@ -728,7 +728,7 @@ export function StudentAnalytics() {
     const doneCount = mySubs.filter((s) => s.submittedAt && new Date(s.submittedAt).toDateString() === day.toDateString()).length
     return { day: day.toLocaleDateString(undefined, { weekday: 'short' }), minutes: Math.round(mins), submitted: doneCount }
   })
-  const COLORS = ['#C2461E', '#C8962B', '#3F8A6B', '#6E6759', '#8C3B4A']
+  const COLORS = ['#237B5D', '#C28D25', '#538F6B', '#5F7568', '#8C3B4A']
   return (
     <div>
       <PageHeader title="My Analytics" sub="Review your submissions, grades and focus time." />
@@ -738,10 +738,10 @@ export function StudentAnalytics() {
         <Card className="p-5"><p className="text-sm text-slate-500">Focus sessions</p><p className="mt-1 font-display text-3xl font-extrabold">{focusSessions.filter((s) => s.studentId === user.id).length}</p><p className="text-xs text-slate-500">{formatMinutes(focusSessions.filter((s) => s.studentId === user.id).reduce((t, s) => t + s.activeMs, 0))} total</p></Card>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card className="p-5"><h2 className="font-display font-bold">Focus & submissions — last 7 days</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><LineChart data={weekData}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#A39B8A" strokeOpacity={0.35} /><XAxis dataKey="day" tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#8A8273", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /><Line type="monotone" dataKey="minutes" stroke="#C2461E" strokeWidth={2} name="Focus minutes" /><Line type="monotone" dataKey="submitted" stroke="#3F8A6B" strokeWidth={2} name="Submitted" /></LineChart></ResponsiveContainer></div></Card>
+        <Card className="p-5"><h2 className="font-display font-bold">Focus & submissions — last 7 days</h2><div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><LineChart data={weekData}><CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#B9C9BD" strokeOpacity={0.35} /><XAxis dataKey="day" tick={{ fill: "#5F7568", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#5F7568", fontSize: 12 }} axisLine={false} tickLine={false} width={32} /><Tooltip cursor={{ fill: "rgba(95,117,104,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #D8E2D8", boxShadow: "0 12px 24px -16px rgba(23,42,34,.2)", fontSize: 13 }} /><Line type="monotone" dataKey="minutes" stroke="#237B5D" strokeWidth={2} name="Focus minutes" /><Line type="monotone" dataKey="submitted" stroke="#538F6B" strokeWidth={2} name="Submitted" /></LineChart></ResponsiveContainer></div></Card>
         <Card className="p-5"><h2 className="font-display font-bold">Workload by subject</h2>
           {bySubject.length === 0 ? <EmptyState title="No data yet" body="Subject workload appears once assignments exist." /> : (
-            <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={bySubject} dataKey="total" nameKey="subject" cx="50%" cy="50%" outerRadius={90} label>{bySubject.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip cursor={{ fill: "rgba(163,155,138,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #E3DED3", boxShadow: "0 12px 24px -16px rgba(28,26,23,.4)", fontSize: 13 }} /></PieChart></ResponsiveContainer></div>
+            <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={bySubject} dataKey="total" nameKey="subject" cx="50%" cy="50%" outerRadius={90} label>{bySubject.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip cursor={{ fill: "rgba(95,117,104,0.14)" }} contentStyle={{ borderRadius: 10, border: "1px solid #D8E2D8", boxShadow: "0 12px 24px -16px rgba(23,42,34,.2)", fontSize: 13 }} /></PieChart></ResponsiveContainer></div>
           )}
           <ul className="mt-2 space-y-1 text-sm">{bySubject.map((b, i) => <li key={b.subject}><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />{b.subject}: {b.done}/{b.total} done</li>)}</ul>
         </Card>
