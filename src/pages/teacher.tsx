@@ -174,21 +174,34 @@ export function TeacherAssignmentCreate() {
   const [latePolicy, setLatePolicy] = useState<'accept' | 'accept-penalty' | 'reject'>('accept-penalty')
   const [attachments, setAttachments] = useState<StoredFile[]>([])
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState<'draft' | 'publish' | null>(null)
   const myClasses = classes.filter((c) => c.teacherId === user.id)
   const subjects = [...new Set(['Mathematics', 'Science', 'English', 'History', 'Computer Science', ...myClasses.map((item) => item.subject)])]
   const save = async (e: FormEvent<HTMLFormElement>) => {
     const publish = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'publish'
     e.preventDefault()
+    if (saving) return
+    setError('')
     if (!title.trim() || !classId) { setError('Title and class are required.'); return }
     const deadline = new Date(dueAt)
     if (!Number.isFinite(deadline.getTime()) || !Number.isInteger(maxMarks) || maxMarks < 1 || maxMarks > 100) {
       setError('Enter a valid deadline and a maximum mark between 1 and 100.')
       return
     }
-    const id = await runAction('createAssignment', { title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy, attachments })
-    if (!id) { setError(DEMO_MODE && attachments.length ? 'Could not save. The attachments may not fit in this browser’s storage, or the class is not assigned to you.' : 'Could not save. Check the class and attachments, then try again.'); return }
-    toast(publish ? 'Assignment published.' : 'Draft saved.')
-    navigate(`/teacher/assignments/${id}`)
+    setSaving(publish ? 'publish' : 'draft')
+    try {
+      const result = await runAction('createAssignment', { title: title.trim(), description, instructions, referenceNotes: referenceNotes.trim(), subject, classId, teacherId: user.id, dueAt: deadline.toISOString(), maxMarks, submissionFormat: format, rubric, status: publish ? 'published' : 'draft', latePolicy, attachments })
+      if (typeof result !== 'string' || !result) {
+        setError(typeof result === 'object' && result && 'error' in result ? result.error : 'Could not save the assignment. Check your connection and try again.')
+        return
+      }
+      toast(publish ? 'Assignment published.' : 'Draft saved.')
+      navigate(`/teacher/assignments/${result}`)
+    } catch {
+      setError('Could not save the assignment. Check your connection and try again.')
+    } finally {
+      setSaving(null)
+    }
   }
   return (
     <div>
@@ -215,8 +228,12 @@ export function TeacherAssignmentCreate() {
           <div><Label htmlFor="teacher-rubric">Rubric (optional)</Label><Textarea id="teacher-rubric" rows={2} value={rubric} onChange={(e) => setRubric(e.target.value)} placeholder="How will this be marked?" /></div>
           <AssignmentFilesInput id="assignment-files" files={attachments} onChange={setAttachments} onError={setError} />
           <div><Label htmlFor="teacher-late">Late submission policy</Label><Select id="teacher-late" value={latePolicy} onChange={(e) => setLatePolicy(e.target.value as typeof latePolicy)}><option value="accept">Accept late work</option><option value="accept-penalty">Accept late with penalty</option><option value="reject">Do not accept late work</option></Select></div>
-          {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{error}</p>}
-          <div className="flex gap-2"><Button type="submit" variant="outline">Save draft</Button><Button type="submit" value="publish"><Send className="h-4 w-4" /> Publish assignment</Button></div>
+          {error && <p className="enter-surface rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200" role="alert">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant="outline" disabled={saving !== null}>{saving === 'draft' ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true" /> Saving draft…</> : 'Save draft'}</Button>
+            <Button type="submit" value="publish" disabled={saving !== null}>{saving === 'publish' ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true" /> Publishing…</> : <><Send className="h-4 w-4" aria-hidden="true" /> Publish assignment</>}</Button>
+            {saving && <span className="self-center text-sm text-slate-500" role="status" aria-live="polite">{saving === 'publish' ? 'Publishing your assignment…' : 'Saving your draft…'}</span>}
+          </div>
         </Card>
       </form>}
     </div>

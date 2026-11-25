@@ -5,7 +5,10 @@ type Action = {
   [Key in keyof AppState]: AppState[Key] extends (...args: never[]) => unknown ? Key : never
 }[keyof AppState]
 
-type Result<Key extends Action> = ReturnType<AppState[Key]> extends void ? boolean : ReturnType<AppState[Key]>
+type ActionFailure = { ok: false; error: string }
+type Result<Key extends Action> = Key extends 'createAssignment'
+  ? ReturnType<AppState[Key]> | ActionFailure
+  : ReturnType<AppState[Key]> extends void ? boolean : ReturnType<AppState[Key]>
 
 interface WorkspaceResponse {
   result?: unknown
@@ -30,6 +33,9 @@ export function runAction<Key extends Action>(action: Key, ...args: Parameters<A
   if (DEMO_MODE) {
     const fn = useStore.getState()[action] as (...values: Parameters<AppState[Key]>) => ReturnType<AppState[Key]>
     const result = fn(...args)
+    if (action === 'createAssignment' && !result) {
+      return { ok: false, error: 'Could not save this assignment. Check that the class is assigned to you and that its attachments fit within the browser storage limit.' } as Result<Key>
+    }
     return (result === undefined ? true : result) as Result<Key>
   }
   const execute = async () => {
@@ -48,6 +54,7 @@ export function runAction<Key extends Action>(action: Key, ...args: Parameters<A
     } catch (error) {
       const message = error instanceof TypeError ? 'Could not reach the laptop. Check your connection and try again.' : error instanceof Error ? error.message : 'The change could not be saved.'
       if (objectResults.has(action)) return { ok: false, error: message } as Result<Key>
+      if (action === 'createAssignment') return { ok: false, error: message } as Result<Key>
       toast(message, 'error')
       return (stringResults.has(action) ? '' : false) as Result<Key>
     } finally {
