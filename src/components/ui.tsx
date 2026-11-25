@@ -49,8 +49,8 @@ type ButtonStyle = {
 function buttonClass({ variant = 'primary', size = 'md', className = '' }: ButtonStyle) {
   const sizes = { sm: 'h-8 px-3 text-[13px]', md: 'h-10 px-4 text-sm', lg: 'h-12 px-6 text-[15px]' }
   const variants = {
-    primary: 'bg-slate-900 text-slate-50 shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_1px_2px_rgb(28_26_23/0.2)] hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white',
-    secondary: 'bg-royal-600 text-white hover:bg-indigo-700 dark:bg-royal-400 dark:text-slate-950 dark:hover:bg-indigo-300',
+    primary: 'bg-royal-600 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_1px_2px_rgb(18_51_37/0.2)] hover:bg-royal-700 dark:bg-royal-400 dark:text-slate-950 dark:hover:bg-cyan-300',
+    secondary: 'bg-slate-800 text-white hover:bg-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white',
     ghost: 'hover:bg-slate-900/[0.05] dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-200',
     danger: 'bg-rose-700 hover:bg-rose-800 text-white',
     outline: 'border border-slate-300 bg-white/60 hover:border-slate-400 hover:bg-white dark:border-slate-700 dark:bg-transparent dark:hover:border-slate-500 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200',
@@ -245,7 +245,7 @@ export function WrappedTick({ x, y, payload, maxChars }: { x?: number; y?: numbe
   return (
     <g transform={`translate(${x ?? 0},${y ?? 0})`}>
       <title>{full}</title>
-      <text textAnchor="end" fill="#8A8273" fontSize={12} dx={-6}>
+      <text textAnchor="end" fill="#5F7568" fontSize={12} dx={-6}>
         {lines.map((l, i) => <tspan key={i} x={0} dx={-6} dy={i === 0 ? 4 - offset : 14}>{l}</tspan>)}
       </text>
     </g>
