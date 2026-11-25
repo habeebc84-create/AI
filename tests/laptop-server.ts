@@ -80,6 +80,14 @@ try {
   const teacherId = teacherState.currentUserId
   const { state: provisioned } = await admin.action('addClass', 'Capacity class', '10', 'Mathematics', teacherId)
   const classId = provisioned.classes[0].id
+  const otherTeacherId = provisioned.users.find((user: { email: string }) => user.email === 'other-teacher@example.test').id
+  const { state: otherClassState } = await admin.action('addClass', 'Other class', '10', 'Science', otherTeacherId)
+  const otherClassId = otherClassState.classes.find((room: { name: string }) => room.name === 'Other class').id
+  const addedStudent = await teacher.action('addAccount', 'Teacher Added Student', 'teacher-added@example.test', 'test-password', 'student', classId)
+  assert(addedStudent.result.ok)
+  assert.equal(addedStudent.state.users.find((user: { email: string }) => user.email === 'teacher-added@example.test').classId, classId)
+  await teacher.request('actions/addAccount', ['Teacher Escalation', 'teacher-escalation@example.test', 'test-password', 'teacher', classId], 403)
+  await teacher.request('actions/addAccount', ['Out of Class', 'out-of-class@example.test', 'test-password', 'student', otherClassId], 403)
   for (let index = 0; index < 100; index++) {
     assert((await admin.action('addAccount', `Student ${index}`, `student-${index}@example.test`, 'test-password', 'student', classId)).result.ok)
   }

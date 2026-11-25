@@ -85,25 +85,64 @@ export function TeacherClasses() {
 export function TeacherStudents() {
   const user = useCurrentUser()!
   const { classes, users, assignments, submissions } = useStore()
-  const studentIds = [...new Set(classes.filter((c) => c.teacherId === user.id).flatMap((c) => c.studentIds))]
-  const students = users.filter((u) => studentIds.includes(u.id))
+  const myClasses = classes.filter((item) => item.teacherId === user.id)
+  const studentIds = [...new Set(myClasses.flatMap((item) => item.studentIds))]
+  const students = users.filter((student) => studentIds.includes(student.id))
+  const [showAdd, setShowAdd] = useState(false)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const addStudent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (saving) return
+    const form = new FormData(event.currentTarget)
+    const classId = String(form.get('classId') ?? '')
+    if (!myClasses.some((item) => item.id === classId)) {
+      setError('Choose a class assigned to your teacher account.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const result = await runAction('addAccount', String(form.get('name')), String(form.get('email')), String(form.get('password')), 'student', classId)
+      if (!result.ok) {
+        setError(result.error ?? 'Could not add the student.')
+        return
+      }
+      setShowAdd(false)
+      toast('Student account created.')
+    } catch {
+      setError('Could not reach the workspace. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
   return (
     <div>
-      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." />
-      <div className="space-y-2">{students.map((s) => {
-        const mine = assignments.filter((a) => a.teacherId === user.id)
-        const done = submissions.filter((x) => x.studentId === s.id && x.submittedAt && mine.some((a) => a.id === x.assignmentId)).length
+      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." action={<Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd} disabled={!myClasses.length}>{showAdd ? 'Cancel' : 'Add student'}</Button>} />
+      {showAdd && <Card className="mb-5 max-w-2xl p-5">
+        <form onSubmit={addStudent} className="grid gap-3 sm:grid-cols-2">
+          <div><Label htmlFor="teacher-student-name">Full name</Label><Input id="teacher-student-name" name="name" autoComplete="name" required /></div>
+          <div><Label htmlFor="teacher-student-email">Student email</Label><Input id="teacher-student-email" name="email" type="email" autoComplete="email" spellCheck={false} autoCapitalize="none" required /></div>
+          <div><Label htmlFor="teacher-student-password">{DEMO_MODE ? 'Demo password' : 'Temporary password'}</Label><Input id="teacher-student-password" name="password" type="password" autoComplete="new-password" minLength={DEMO_MODE ? 6 : 8} maxLength={128} required /></div>
+          <div><Label htmlFor="teacher-student-class">Class</Label><Select id="teacher-student-class" name="classId" required defaultValue=""><option value="" disabled>Select your class</option>{myClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>
+          {error && <p className="text-sm text-rose-700 dark:text-rose-300 sm:col-span-2" role="alert">{error}</p>}
+          <div className="sm:col-span-2"><Button type="submit" disabled={saving}>{saving ? 'Adding student…' : 'Create student account'}</Button></div>
+        </form>
+      </Card>}
+      {students.length === 0 ? <EmptyState title="No students in your classes yet" body="Add a student account and assign it to one of your classes." /> :
+      <div className="space-y-2">{students.map((student) => {
+        const mine = assignments.filter((assignment) => assignment.teacherId === user.id)
+        const done = submissions.filter((item) => item.studentId === student.id && item.submittedAt && mine.some((assignment) => assignment.id === item.assignmentId)).length
         return (
-          <Card key={s.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-            <div><p className="font-semibold">{s.name}</p><p className="text-sm text-slate-500">{s.email} · {s.grade}</p></div>
-            <Badge color="indigo">{done}/{mine.filter((a) => a.status === 'published').length} submitted</Badge>
+          <Card key={student.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
+            <div><p className="font-semibold">{student.name}</p><p className="text-sm text-slate-500">{student.email} · {student.grade}</p></div>
+            <Badge color="indigo">{done}/{mine.filter((assignment) => assignment.status === 'published').length} submitted</Badge>
           </Card>
         )
-      })}</div>
+      })}</div>}
     </div>
   )
 }
-
 export function TeacherAssignments() {
   const user = useCurrentUser()!
   const { assignments, submissions } = useStore()
