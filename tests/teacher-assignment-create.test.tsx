@@ -61,7 +61,23 @@ describe('teacher assignment posting', () => {
     expect(screen.getByRole('status').textContent).toContain('Publishing your assignment…')
     expect((screen.getByRole('button', { name: /Save draft/ }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: /Publishing/ }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /Publishing/ }))
+    expect(mockRunAction).toHaveBeenCalledTimes(1)
     finishPost('assignment_test')
     await waitFor(() => expect(screen.getByText('Assignment created')).toBeTruthy())
+  })
+
+  it('shows a thrown network error and lets the teacher retry', async () => {
+    mockRunAction
+      .mockRejectedValueOnce(new TypeError('Network unavailable'))
+      .mockImplementationOnce(() => Promise.resolve('assignment_test' as never))
+    renderForm()
+    fireEvent.change(screen.getByLabelText('Title *'), { target: { value: 'Algebra check-in' } })
+    fireEvent.change(screen.getByLabelText('Instructions'), { target: { value: 'Show each step.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publish assignment' }))
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Check your connection and try again.')
+    fireEvent.click(screen.getByRole('button', { name: 'Publish assignment' }))
+    expect(await screen.findByText('Assignment created')).toBeTruthy()
   })
 })
