@@ -258,8 +258,10 @@ export const useStore = create<AppState>()(
       },
       addAccount: (name, email, password, role, classId) => {
         const state = get()
-        const admin = currentActor(state, 'admin')
-        if (!admin) return { ok: false, error: 'Only administrators can add accounts.' }
+        const actor = currentActor(state, 'admin') ?? currentActor(state, 'teacher')
+        if (!actor) return { ok: false, error: 'Only a principal or an assigned teacher can add accounts.' }
+        const teacherAddingStudent = actor.role === 'teacher'
+        if (teacherAddingStudent && role !== 'student') return { ok: false, error: 'Teachers can only add student accounts.' }
         const address = email.trim().toLowerCase()
         if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) || password.length < 6) {
           return { ok: false, error: 'Enter a name, a valid email and a demo password of at least six characters.' }
@@ -267,9 +269,12 @@ export const useStore = create<AppState>()(
         if (state.users.some((user) => user.email.toLowerCase() === address)) return { ok: false, error: 'That email already has an account.' }
         const classroom = classId && role === 'student' ? state.classes.find((item) => item.id === classId) : undefined
         if (role === 'student' && classId && !classroom) return { ok: false, error: 'Choose an existing class.' }
+        if (teacherAddingStudent && (!classroom || classroom.teacherId !== actor.id)) {
+          return { ok: false, error: 'Choose a class assigned to your teacher account.' }
+        }
         const user: User = { id: uid('u'), name: name.trim(), email: address, password, role, school: state.institutionName, classId: classroom?.id, grade: classroom?.grade, createdAt: new Date().toISOString() }
         set({ users: [...state.users, user], classes: state.classes.map((item) => item.id === classroom?.id ? { ...item, studentIds: [...item.studentIds, user.id] } : item) })
-        get().audit(admin.id, 'account.create', `Added ${user.name} as ${role}.`)
+        get().audit(actor.id, 'account.create', `Added ${user.name} as ${role}.`)
         return { ok: true }
       },
       addClass: (name, grade, subject, teacherId) => {
