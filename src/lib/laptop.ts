@@ -21,6 +21,7 @@ let queue: Promise<unknown> = Promise.resolve()
 let pending = 0
 let etag: string | null = null
 let generation = 0
+let backgroundRefreshPending = false
 
 function apply(data: WorkspaceResponse) {
   if (data.state) useStore.setState({ ...data.state, focusLockNotice: Boolean(data.locked) || (!data.state.currentUserId && useStore.getState().focusLockNotice) })
@@ -96,10 +97,18 @@ export async function initializeLaptop() {
     markAllRead: remote('markAllRead'), createAnnouncement: remote('createAnnouncement'), acceptGuardian: remote('acceptGuardian'),
     updateAiConfig: remote('updateAiConfig'),
   })
-  const backgroundRefresh = () => {
-    if (!pending && !document.hidden) void refresh().catch(() => {})
+  const backgroundRefresh = async () => {
+    if (pending || backgroundRefreshPending || document.hidden) return
+    backgroundRefreshPending = true
+    try {
+      await refresh()
+    } catch {
+      // Keep the last workspace snapshot and retry on the next poll.
+    } finally {
+      backgroundRefreshPending = false
+    }
   }
+  await refresh().catch(() => {})
   window.setInterval(backgroundRefresh, 3000)
   document.addEventListener('visibilitychange', backgroundRefresh)
-  await refresh().catch(() => {})
 }
