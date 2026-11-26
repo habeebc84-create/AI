@@ -197,6 +197,13 @@ try {
   assert.equal(await teacher.file(file), 'test')
   assert.equal((await guardian.state()).submissions.find((item: { id: string }) => item.id === first.submission.id).grade, 9)
   console.log('Restart, role boundaries, private attachments and guardian unlock passed.')
+  const roster = await teacher.state()
+  const parent = roster.users.find((user: { role: string }) => user.role === 'parent')
+  assert.equal(parent.email, '')
+  const addedId = addedStudent.state.users.find((user: { email: string }) => user.email === 'teacher-added@example.test').id
+  const linked = await teacher.action('assignParentToStudent', parent.id, addedId)
+  assert(linked.result.ok)
+  assert(linked.state.guardianLinks.some((link: { studentId: string }) => link.studentId === addedId))
 } finally {
   await stop()
   rmSync(directory, { recursive: true, force: true })

@@ -28,7 +28,7 @@ export function snapshot(state: AppState, actor?: User) {
   const teacherIds = new Set(classes.map((room) => room.teacherId))
   const pendingChildIds = new Set(links.map((link) => link.studentId))
   const users = state.users.filter((user) =>
-    admin || user.id === id || (role === 'teacher' && roster.has(user.id)) || teacherIds.has(user.id)
+    admin || user.id === id || (role === 'teacher' && (roster.has(user.id) || user.role === 'parent')) || teacherIds.has(user.id)
     || (role === 'parent' && pendingChildIds.has(user.id)),
   ).map((user) => {
     if (!admin && user.id !== id && !studentIds.has(user.id) && !(role === 'teacher' && roster.has(user.id))) {
@@ -54,7 +54,8 @@ export function snapshot(state: AppState, actor?: User) {
     announcements: state.announcements.filter((notice) => admin || classIds.has(notice.classId)),
     conversations: state.conversations.filter((item) => item.studentId === id),
     studyPlans: state.studyPlans.filter((item) => item.studentId === id),
-    guardianLinks: links,
+    guardianLinks: admin ? state.guardianLinks : role === 'teacher'
+      ? state.guardianLinks.filter((link) => roster.has(link.studentId)) : links,
     auditLogs: admin ? state.auditLogs : [],
     focusEvents: role === 'student' ? state.focusEvents.filter((event) => event.sessionId === state.activeFocus?.sessionId || sessions.some((session) => session.id === event.sessionId)) : [],
     focusLosses: Object.fromEntries([...studentIds].map((studentId) => [studentId, state.focusLosses[studentId] ?? 0])),
