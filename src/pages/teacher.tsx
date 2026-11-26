@@ -84,12 +84,12 @@ export function TeacherClasses() {
 
 export function TeacherStudents() {
   const user = useCurrentUser()!
-  const { classes, users, assignments, submissions, guardianLinks, assignParentToStudent } = useStore()
+  const { classes, users, assignments, submissions, guardianLinks } = useStore()
   const myClasses = classes.filter((item) => item.teacherId === user.id)
   const studentIds = [...new Set(myClasses.flatMap((item) => item.studentIds))]
   const students = users.filter((student) => studentIds.includes(student.id))
   const parents = users.filter((u) => u.role === 'parent')
-  const linkedParentIds = new Set(guardianLinks.filter((g) => g.status === 'accepted').map((g) => g.parentId))
+  const linkedStudentIds = new Set(guardianLinks.filter((g) => g.status === 'accepted').map((g) => g.studentId))
   const [showAdd, setShowAdd] = useState(false)
   const [showLink, setShowLink] = useState<string | null>(null)
   const [linkError, setLinkError] = useState('')
@@ -143,7 +143,7 @@ export function TeacherStudents() {
   }
   return (
     <div>
-      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." action={<div className="flex gap-2"><Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd} disabled={!myClasses.length}>{showAdd ? 'Cancel' : 'Add student'}</Button><Button variant="outline" onClick={() => { setShowLink(null); setLinkError('') }} aria-expanded={Boolean(showLink)} disabled={!parents.length}>{showLink ? 'Cancel' : 'Link parent'}</Button></div>} />
+      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." action={<div className="flex gap-2"><Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd} disabled={!myClasses.length}>{showAdd ? 'Cancel' : 'Add student'}</Button><Button variant="outline" onClick={() => { setShowLink(showLink ? null : students[0]?.id ?? null); setLinkError('') }} aria-expanded={Boolean(showLink)} disabled={!parents.length || !students.length}>{showLink ? 'Cancel' : 'Link parent'}</Button></div>} />
       {showAdd && <Card className="mb-5 max-w-2xl p-5">
         <form onSubmit={addStudent} className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="teacher-student-name">Full name</Label><Input id="teacher-student-name" name="name" autoComplete="name" required /></div>
@@ -157,7 +157,7 @@ export function TeacherStudents() {
       {showLink && <Card className="mb-5 max-w-2xl p-5">
         <h3 className="font-display font-bold">Link a parent to a student</h3>
         <p className="mt-1 text-sm text-slate-500">Pick the student and the parent account to connect. This lets the parent see grades and receive notifications for that student.</p>
-        <form onSubmit={linkParent} className="mt-4 grid gap-3 sm:grid-cols-2">
+        <form key={showLink} onSubmit={linkParent} className="mt-4 grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="teacher-link-student">Student</Label><Select id="teacher-link-student" name="student" required defaultValue={showLink ?? ''}><option value="" disabled>Select a student</option>{students.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>
           <div><Label htmlFor="teacher-link-parent">Parent</Label><Select id="teacher-link-parent" name="parent" required defaultValue=""><option value="" disabled>Select a parent</option>{parents.map((parent) => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</Select></div>
           {linkError && <p className="text-sm text-rose-700 dark:text-rose-300 sm:col-span-2" role="alert">{linkError}</p>}
@@ -168,7 +168,7 @@ export function TeacherStudents() {
       <div className="space-y-2">{students.map((student) => {
         const mine = assignments.filter((assignment) => assignment.teacherId === user.id)
         const done = submissions.filter((item) => item.studentId === student.id && item.submittedAt && mine.some((assignment) => assignment.id === item.assignmentId)).length
-        const linked = linkedParentIds.has(student.id)
+        const linked = linkedStudentIds.has(student.id)
         return (
           <Card key={student.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
             <div><p className="font-semibold">{student.name}</p><p className="text-sm text-slate-500">{student.email} · {student.grade}</p></div>

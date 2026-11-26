@@ -77,6 +77,7 @@ security, Storage and Edge Functions. See
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Vercel + Supabase deploy, cron, rollback
 - [`docs/TESTING.md`](docs/TESTING.md) — frontend tests, RLS tests, function smoke tests
 - [`docs/SECURITY.md`](docs/SECURITY.md) — threat model, secrets, known gaps
+- [Skills cheat sheet](docs/skills-cheat-sheet.pdf) — project owner's reference catalog
 
 ## Backend layout
 

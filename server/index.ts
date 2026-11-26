@@ -130,7 +130,7 @@ type ActionName = keyof typeof actions
 const studentActions = new Set<ActionName>(['saveDraft', 'submitAssignment', 'startFocus', 'pauseFocus', 'resumeFocus', 'finishFocus', 'recordVisibility', 'setFocusPrefs', 'sendTutorMessage', 'saveStudyPlan', 'togglePlanItem'])
 const teacherActions = new Set<ActionName>(['createAssignment', 'updateAssignment', 'publishAssignment', 'gradeSubmission', 'returnForRevision', 'createAnnouncement'])
 const parentActions = new Set<ActionName>(['acceptGuardian', 'unlockStudent'])
-const adminAndTeacherActions = new Set<ActionName>(['addAccount', 'addClass', 'enrollStudent', 'saveInstitutionName', 'updateAiConfig'])
+const adminActions = new Set<ActionName>(['addClass', 'enrollStudent', 'saveInstitutionName', 'updateAiConfig'])
 
 function permitted(actor: User, action: ActionName, args: unknown[]): boolean {
   const state = get()
@@ -140,21 +140,13 @@ function permitted(actor: User, action: ActionName, args: unknown[]): boolean {
     const classId = args[4]
     return actor.role === 'teacher' && role === 'student' && typeof classId === 'string' && state.classes.some((room) => room.id === classId && room.teacherId === actor.id)
   }
-  if (adminAndTeacherActions.has(action)) {
-    if (action === 'addAccount') {
-      if (actor.role === 'admin') return true
-      const role = args[3]
-      const classId = args[4]
-      return actor.role === 'teacher' && role === 'student' && typeof classId === 'string' && state.classes.some((room) => room.id === classId && room.teacherId === actor.id)
-    }
-    if (action === 'assignParentToStudent') {
-      const studentId = args[1]
-      if (actor.role === 'admin') return true
-      if (actor.role !== 'teacher') return false
-      return state.classes.some((room) => room.teacherId === actor.id && room.studentIds.includes(studentId))
-    }
-    return actor.role === 'admin'
+  if (action === 'assignParentToStudent') {
+    if (actor.role === 'admin') return true
+    const studentId = args[1]
+    return actor.role === 'teacher' && typeof studentId === 'string' &&
+      state.classes.some((room) => room.teacherId === actor.id && room.studentIds.includes(studentId))
   }
+  if (adminActions.has(action)) return actor.role === 'admin'
   if (parentActions.has(action)) return actor.role === 'parent' && (action !== 'acceptGuardian'
     || state.guardianLinks.some((link) => link.id === args[0] && link.parentId === actor.id && link.status === 'pending'))
   if (teacherActions.has(action)) {
