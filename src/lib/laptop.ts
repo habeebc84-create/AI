@@ -27,7 +27,7 @@ function apply(data: WorkspaceResponse) {
   if (data.state) useStore.setState({ ...data.state, focusLockNotice: Boolean(data.locked) || (!data.state.currentUserId && useStore.getState().focusLockNotice) })
 }
 
-const objectResults = new Set<Action>(['login', 'register', 'addAccount', 'addClass', 'enrollStudent', 'assignParentToStudent', 'saveInstitutionName', 'saveDraft', 'submitAssignment', 'inviteGuardian'])
+const objectResults = new Set<Action>(['login', 'register', 'addAccount', 'addClass', 'enrollStudent', 'assignParentToStudent', 'addParentAndLink', 'saveInstitutionName', 'saveDraft', 'submitAssignment', 'inviteGuardian'])
 const stringResults = new Set<Action>(['createAssignment', 'sendTutorMessage'])
 
 export function runAction<Key extends Action>(action: Key, ...args: Parameters<AppState[Key]>): Result<Key> | Promise<Result<Key>> {

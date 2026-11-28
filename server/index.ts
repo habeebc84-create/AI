@@ -140,7 +140,7 @@ function permitted(actor: User, action: ActionName, args: unknown[]): boolean {
     const classId = args[4]
     return actor.role === 'teacher' && role === 'student' && typeof classId === 'string' && state.classes.some((room) => room.id === classId && room.teacherId === actor.id)
   }
-  if (action === 'assignParentToStudent') {
+  if (action === 'assignParentToStudent' || action === 'addParentAndLink') {
     if (actor.role === 'admin') return true
     const studentId = args[1]
     return actor.role === 'teacher' && typeof studentId === 'string' &&
@@ -278,8 +278,8 @@ const server = Bun.serve({
       if (limit && limit.count >= 8) return fail('Too many sign-in attempts. Try again in five minutes.', 429)
       if (failedLogins.size >= 10000) return fail('Too many sign-in attempts. Try again in five minutes.', 429)
       failedLogins.set(key, { count: (limit?.count ?? 0) + 1, until: limit?.until ?? now + 300000 })
-      const user = get().users.find((item) => item.email === email)
-      if (!await Bun.password.verify(password, user?.password ?? dummyPassword) || !user) return fail('Email or password is incorrect.', 401)
+      const user = email ? get().users.find((item) => item.email === email) : undefined
+      if (!await Bun.password.verify(password, user?.password ?? dummyPassword) || !user || !user.password) return fail('Email or password is incorrect.', 401)
       failedLogins.delete(key)
       if ((get().focusLosses[user.id] ?? 0) >= FOCUS_LOSS_LIMIT) return fail('Student login locked. Ask your linked parent to restore access.', 403)
       const newToken = randomBytes(32).toString('hex')

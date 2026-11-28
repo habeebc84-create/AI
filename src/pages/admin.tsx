@@ -81,7 +81,7 @@ export function AdminUsers() {
       {!list.length && <EmptyState title="No accounts in this role" body="Add an account or choose another role." />}
       <div className="space-y-2">{list.map((u) => (
         <Card key={u.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div className="min-w-0"><p className="font-semibold">{u.name}</p><p className="break-words text-sm text-slate-500">{u.email}{u.grade && ` · ${u.grade}`}{u.role === 'teacher' && u.department && ` · ${u.department}`}</p></div>
+          <div className="min-w-0"><p className="font-semibold">{u.name}</p><p className="break-words text-sm text-slate-500">{u.email || 'Linked by name'}{u.grade && ` · ${u.grade}`}{u.role === 'teacher' && u.department && ` · ${u.department}`}</p></div>
           <div className="flex items-center gap-2"><Badge color={u.role === 'admin' ? 'rose' : u.role === 'teacher' ? 'indigo' : u.role === 'parent' ? 'cyan' : 'slate'}>{u.role}</Badge>{u.role === 'teacher' && <span className="text-xs text-slate-500">{classes.filter((c) => c.teacherId === u.id).length} class(es)</span>}</div>
         </Card>
       ))}</div>

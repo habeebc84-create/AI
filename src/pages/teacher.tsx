@@ -92,10 +92,22 @@ export function TeacherStudents() {
   const linkedStudentIds = new Set(guardianLinks.filter((g) => g.status === 'accepted').map((g) => g.studentId))
   const [showAdd, setShowAdd] = useState(false)
   const [showLink, setShowLink] = useState<string | null>(null)
+  const [linkMode, setLinkMode] = useState<'new' | 'existing'>('new')
+  const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [parentName, setParentName] = useState('')
+  const [selectedParentId, setSelectedParentId] = useState('')
   const [linkError, setLinkError] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [linking, setLinking] = useState(false)
+  const openLinkPanel = (studentId: string | null) => {
+    setShowLink(studentId)
+    setSelectedStudentId(studentId ?? '')
+    setLinkMode('new')
+    setParentName('')
+    setSelectedParentId('')
+    setLinkError('')
+  }
   const addStudent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (saving) return
@@ -124,26 +136,38 @@ export function TeacherStudents() {
   const linkParent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (linking) return
-    const form = new FormData(event.currentTarget)
-    const parentId = String(form.get('parent') ?? '')
-    const studentId = String(form.get('student') ?? '')
-    if (!studentId || !parentId) { setLinkError('Select a student and a parent account.'); return }
+    const useNewParent = linkMode === 'new' || !parents.length
+    if (!selectedStudentId) {
+      setLinkError('Select a student.')
+      return
+    }
+    if (useNewParent && !parentName.trim()) {
+      setLinkError('Enter the parent name.')
+      return
+    }
+    if (!useNewParent && !selectedParentId) {
+      setLinkError('Select a parent account.')
+      return
+    }
     setLinking(true)
     setLinkError('')
     try {
-      const result = await runAction('assignParentToStudent', parentId, studentId)
+      const result = useNewParent
+        ? await runAction('addParentAndLink', parentName.trim(), selectedStudentId)
+        : await runAction('assignParentToStudent', selectedParentId, selectedStudentId)
       if (!result.ok) { setLinkError(result.error ?? 'Could not link the parent.'); return }
-      setShowLink(null)
-      toast('Parent linked to student.')
+      openLinkPanel(null)
+      toast(useNewParent ? 'Parent added and linked to student.' : 'Parent linked to student.')
     } catch {
       setLinkError('Could not reach the workspace. Check your connection and try again.')
     } finally {
       setLinking(false)
     }
   }
+  const defaultLinkStudentId = students.find((student) => !linkedStudentIds.has(student.id))?.id ?? students[0]?.id ?? null
   return (
     <div>
-      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." action={<div className="flex gap-2"><Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd} disabled={!myClasses.length}>{showAdd ? 'Cancel' : 'Add student'}</Button><Button variant="outline" onClick={() => { setShowLink(showLink ? null : students[0]?.id ?? null); setLinkError('') }} aria-expanded={Boolean(showLink)} disabled={!parents.length || !students.length}>{showLink ? 'Cancel' : 'Link parent'}</Button></div>} />
+      <PageHeader title="Students" sub="Enrolment and submission counts for your classes." action={<div className="flex flex-wrap gap-2"><Button onClick={() => { setShowAdd(!showAdd); setError('') }} aria-expanded={showAdd} disabled={!myClasses.length}>{showAdd ? 'Cancel' : 'Add student'}</Button><Button variant="outline" onClick={() => openLinkPanel(showLink ? null : defaultLinkStudentId)} aria-expanded={Boolean(showLink)} disabled={!students.length}>{showLink ? 'Cancel' : 'Link parent'}</Button></div>} />
       {showAdd && <Card className="mb-5 max-w-2xl p-5">
         <form onSubmit={addStudent} className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="teacher-student-name">Full name</Label><Input id="teacher-student-name" name="name" autoComplete="name" required /></div>
@@ -156,23 +180,53 @@ export function TeacherStudents() {
       </Card>}
       {showLink && <Card className="mb-5 max-w-2xl p-5">
         <h3 className="font-display font-bold">Link a parent to a student</h3>
-        <p className="mt-1 text-sm text-slate-500">Pick the student and the parent account to connect. This lets the parent see grades and receive notifications for that student.</p>
-        <form key={showLink} onSubmit={linkParent} className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div><Label htmlFor="teacher-link-student">Student</Label><Select id="teacher-link-student" name="student" required defaultValue={showLink ?? ''}><option value="" disabled>Select a student</option>{students.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>
-          <div><Label htmlFor="teacher-link-parent">Parent</Label><Select id="teacher-link-parent" name="parent" required defaultValue=""><option value="" disabled>Select a parent</option>{parents.map((parent) => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</Select></div>
+        <p className="mt-1 text-sm text-slate-500">Enter a new parent name to add and link immediately, or connect an existing parent account.</p>
+        {parents.length > 0 && (
+          <div className="mt-3 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-navy-800" role="tablist" aria-label="Parent link method">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={linkMode === 'new'}
+              onClick={() => { setLinkMode('new'); setLinkError('') }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${linkMode === 'new' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`}
+            >
+              Add new parent
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={linkMode === 'existing'}
+              onClick={() => { setLinkMode('existing'); setLinkError('') }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${linkMode === 'existing' ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`}
+            >
+              Existing parent ({parents.length})
+            </button>
+          </div>
+        )}
+        <form onSubmit={linkParent} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div><Label htmlFor="teacher-link-student">Student</Label><Select id="teacher-link-student" name="student" required value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}><option value="" disabled>Select a student</option>{students.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></div>
+          {linkMode === 'new' || !parents.length ? (
+            <div><Label htmlFor="teacher-parent-name">Parent name</Label><Input id="teacher-parent-name" name="parentName" autoComplete="name" required maxLength={120} value={parentName} onChange={(e) => setParentName(e.target.value)} placeholder="e.g. Sunita Iyer" /></div>
+          ) : (
+            <div><Label htmlFor="teacher-link-parent">Parent</Label><Select id="teacher-link-parent" name="parent" required value={selectedParentId} onChange={(e) => setSelectedParentId(e.target.value)}><option value="" disabled>Select a parent</option>{parents.map((parent) => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</Select></div>
+          )}
           {linkError && <p className="text-sm text-rose-700 dark:text-rose-300 sm:col-span-2" role="alert">{linkError}</p>}
-          <div className="sm:col-span-2"><Button type="submit" disabled={linking}>{linking ? 'Linking…' : 'Link parent'}</Button></div>
+          <div className="sm:col-span-2"><Button type="submit" disabled={linking}>{linking ? 'Linking…' : linkMode === 'new' || !parents.length ? 'Add & link parent' : 'Link selected parent'}</Button></div>
         </form>
       </Card>}
       {students.length === 0 ? <EmptyState title="No students in your classes yet" body="Add a student account and assign it to one of your classes." /> :
       <div className="space-y-2">{students.map((student) => {
         const mine = assignments.filter((assignment) => assignment.teacherId === user.id)
         const done = submissions.filter((item) => item.studentId === student.id && item.submittedAt && mine.some((assignment) => assignment.id === item.assignmentId)).length
+        const linkedParents = guardianLinks
+          .filter((g) => g.studentId === student.id && g.status === 'accepted')
+          .map((g) => users.find((u) => u.id === g.parentId)?.name)
+          .filter((name): name is string => Boolean(name))
         const linked = linkedStudentIds.has(student.id)
         return (
           <Card key={student.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
-            <div><p className="font-semibold">{student.name}</p><p className="text-sm text-slate-500">{student.email} · {student.grade}</p></div>
-            <div className="flex items-center gap-2"><Badge color="indigo">{done}/{mine.filter((assignment) => assignment.status === 'published').length} submitted</Badge>{linked ? <Badge color="emerald">Parent linked</Badge> : <Button variant="outline" size="sm" onClick={() => { setShowLink(student.id); setLinkError('') }} disabled={!parents.length}>Link parent</Button>}</div>
+            <div><p className="font-semibold">{student.name}</p><p className="text-sm text-slate-500">{student.email} · {student.grade}{linkedParents.length > 0 ? ` · Parent: ${linkedParents.join(', ')}` : ''}</p></div>
+            <div className="flex items-center gap-2"><Badge color="indigo">{done}/{mine.filter((assignment) => assignment.status === 'published').length} submitted</Badge>{linked ? <Badge color="emerald">Parent linked</Badge> : <Button variant="outline" size="sm" onClick={() => openLinkPanel(student.id)}>Link parent</Button>}</div>
           </Card>
         )
       })}</div>}

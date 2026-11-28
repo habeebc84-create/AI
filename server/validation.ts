@@ -30,6 +30,7 @@ export const actions = {
   addClass: z.tuple([name, name, name, id]),
   enrollStudent: z.tuple([id, id]),
   assignParentToStudent: z.tuple([id, id]),
+  addParentAndLink: z.tuple([name, id]),
   saveInstitutionName: z.tuple([name]),
   updateProfile: z.tuple([id, z.object({ name: name.optional(), subjects: z.array(name).max(20).optional(), department: text(120).optional() })]),
   createAssignment: z.tuple([assignment]),
