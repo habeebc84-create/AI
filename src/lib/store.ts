@@ -53,6 +53,7 @@ export interface AppState extends SeedData {
   addClass: (name: string, grade: string, subject: string, teacherId: string) => ActionResult
   enrollStudent: (classId: string, studentId: string) => ActionResult
   assignParentToStudent: (parentId: string, studentId: string) => ActionResult
+  addParentAndLink: (parentName: string, studentId: string) => ActionResult
   currentUserId: string | null
   focusLosses: Record<string, number>
   focusLockNotice: boolean
@@ -209,9 +210,10 @@ export const useStore = create<AppState>()(
       audit: (actorId, action, detail) => set((s) => ({ auditLogs: [{ id: uid('al'), actorId, action, detail, at: new Date().toISOString() }, ...s.auditLogs].slice(0, 200) })),
 
       login: (email, password) => {
-        const user = get().users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+        const address = email.trim().toLowerCase()
+        const user = address ? get().users.find((u) => u.email && u.email.toLowerCase() === address) : undefined
         if (!user) return { ok: false, error: 'No account with that email on this computer. Try a sample account or register.' }
-        if (user.password !== password) return { ok: false, error: 'Incorrect password. Sample accounts use “demo1234”.' }
+        if (!user.password || user.password !== password) return { ok: false, error: 'Incorrect password. Sample accounts use “demo1234”.' }
         if ((get().focusLosses[user.id] ?? 0) >= FOCUS_LOSS_LIMIT) {
           return { ok: false, error: 'Your account is locked after five focus losses. Ask your linked parent to unlock it.' }
         }
@@ -221,7 +223,9 @@ export const useStore = create<AppState>()(
         return { ok: true }
       },
       register: (name, email, password, grade, school) => {
-        if (get().users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) return { ok: false, error: 'An account with that email already exists.' }
+        const address = email.trim().toLowerCase()
+        if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return { ok: false, error: 'Enter a valid email address.' }
+        if (get().users.some((u) => u.email && u.email.toLowerCase() === address)) return { ok: false, error: 'An account with that email already exists.' }
         if (password.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' }
         const user: User = { id: uid('u'), name, email: email.trim(), password, role: 'student', school: school || 'Sunrise Public School', grade, classId: 'c_10a', subjects: ['Mathematics', 'Science', 'English'], createdAt: new Date().toISOString() }
         if (get().activeFocus) get().finishFocus(null, '')
@@ -264,7 +268,7 @@ export const useStore = create<AppState>()(
         if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) || password.length < 6) {
           return { ok: false, error: 'Enter a name, a valid email and a demo password of at least six characters.' }
         }
-        if (state.users.some((user) => user.email.toLowerCase() === address)) return { ok: false, error: 'That email already has an account.' }
+        if (state.users.some((user) => user.email && user.email.toLowerCase() === address)) return { ok: false, error: 'That email already has an account.' }
         const classroom = classId && role === 'student' ? state.classes.find((item) => item.id === classId) : undefined
         if (role === 'student' && classId && !classroom) return { ok: false, error: 'Choose an existing class.' }
         if (actor.role === 'teacher') {
@@ -286,11 +290,66 @@ export const useStore = create<AppState>()(
         if (actor.role === 'teacher' && !state.classes.some((room) => room.teacherId === actor.id && room.studentIds.includes(studentId))) {
           return { ok: false, error: 'Choose a student in one of your classes.' }
         }
-        if (state.guardianLinks.some((g) => g.parentId === parent.id && g.studentId === studentId)) {
-          return { ok: false, error: 'This parent is already linked to that student.' }
+        const existingLink = state.guardianLinks.find((g) => g.parentId === parent.id && g.studentId === studentId)
+        if (existingLink) {
+          if (existingLink.status === 'accepted') return { ok: false, error: 'This parent is already linked to that student.' }
+          set((s) => ({ guardianLinks: s.guardianLinks.map((g) => g.id === existingLink.id ? { ...g, status: 'accepted' } : g) }))
+          get().audit(actor.id, 'guardian.link', `Linked ${parent.name} to ${student.name}.`)
+          return { ok: true }
         }
         set((s) => ({ guardianLinks: [...s.guardianLinks, { id: uid('g'), parentId, studentId, status: 'accepted', createdAt: new Date().toISOString() }] }))
         get().audit(actor.id, 'guardian.link', `Linked ${parent.name} to ${student.name}.`)
+        return { ok: true }
+      },
+      addParentAndLink: (parentName, studentId) => {
+        const state = get()
+        const actor = currentActor(state, 'admin') ?? currentActor(state, 'teacher')
+        if (!actor) return { ok: false, error: 'Only a principal or an assigned teacher can link guardians.' }
+        const trimmedName = parentName.trim()
+        if (!trimmedName || trimmedName.length > 120) {
+          return { ok: false, error: 'Enter a parent name of up to 120 characters.' }
+        }
+        const student = state.users.find((user) => user.id === studentId && user.role === 'student')
+        if (!student) return { ok: false, error: 'Choose an existing student.' }
+        if (actor.role === 'teacher' && !state.classes.some((room) => room.teacherId === actor.id && room.studentIds.includes(studentId))) {
+          return { ok: false, error: 'Choose a student in one of your classes.' }
+        }
+        const matchingStudentLink = state.guardianLinks.find((link) => {
+          if (link.studentId !== studentId) return false
+          const existingParent = state.users.find((user) => user.id === link.parentId && user.role === 'parent')
+          return existingParent?.name.trim().toLowerCase() === trimmedName.toLowerCase()
+        })
+        if (matchingStudentLink) {
+          if (matchingStudentLink.status === 'accepted') {
+            return { ok: false, error: 'A parent with that name is already linked to this student.' }
+          }
+          const existingParent = state.users.find((user) => user.id === matchingStudentLink.parentId)!
+          set((s) => ({ guardianLinks: s.guardianLinks.map((g) => g.id === matchingStudentLink.id ? { ...g, status: 'accepted' } : g) }))
+          get().audit(actor.id, 'guardian.link', `Linked ${existingParent.name} to ${student.name}.`)
+          return { ok: true }
+        }
+        const nowIso = new Date().toISOString()
+        const parent: User = {
+          id: uid('u'),
+          name: trimmedName,
+          email: '',
+          role: 'parent',
+          school: state.institutionName,
+          childrenIds: [studentId],
+          createdAt: nowIso,
+        }
+        const link: GuardianLink = {
+          id: uid('g'),
+          parentId: parent.id,
+          studentId,
+          status: 'accepted',
+          createdAt: nowIso,
+        }
+        set((s) => ({
+          users: [...s.users, parent],
+          guardianLinks: [...s.guardianLinks, link],
+        }))
+        get().audit(actor.id, 'guardian.link', `Added parent ${parent.name} and linked to ${student.name}.`)
         return { ok: true }
       },
       addClass: (name, grade, subject, teacherId) => {
@@ -562,7 +621,8 @@ export const useStore = create<AppState>()(
         const student = users.find((user) => user.id === studentId && user.role === 'student')
         const linked = guardianLinks.some((link) => link.studentId === studentId && link.parentId === currentUserId && link.status === 'accepted')
         if (!student || (currentUserId !== studentId && !linked && !currentActor(get(), 'admin'))) return { ok: false, error: 'You cannot link a guardian for that student.' }
-        const parent = users.find((u) => u.email.toLowerCase() === parentEmail.trim().toLowerCase() && u.role === 'parent')
+        const address = parentEmail.trim().toLowerCase()
+        const parent = address ? users.find((u) => u.email && u.email.toLowerCase() === address && u.role === 'parent') : undefined
         if (!parent) return { ok: false, error: 'No parent account with that email. Ask an administrator to add the parent account first.' }
         if (get().guardianLinks.some((g) => g.parentId === parent.id && g.studentId === studentId)) return { ok: false, error: 'A guardian link already exists for this parent and student.' }
         set((s) => ({ guardianLinks: [...s.guardianLinks, { id: uid('g'), parentId: parent.id, studentId, status: 'pending', createdAt: new Date().toISOString() }] }))

@@ -204,6 +204,15 @@ try {
   const linked = await teacher.action('assignParentToStudent', parent.id, addedId)
   assert(linked.result.ok)
   assert(linked.state.guardianLinks.some((link: { studentId: string }) => link.studentId === addedId))
+  const namedParent = await teacher.action('addParentAndLink', 'Priya Rao', second.studentId)
+  assert(namedParent.result.ok)
+  const createdParent = namedParent.state.users.find((user: { name: string; role: string }) => user.role === 'parent' && user.name === 'Priya Rao')
+  assert(createdParent)
+  assert.equal(createdParent.email, '')
+  assert(namedParent.state.guardianLinks.some((link: { parentId: string; studentId: string; status: string }) =>
+    link.parentId === createdParent.id && link.studentId === second.studentId && link.status === 'accepted'))
+  await unrelatedTeacher.request('actions/addParentAndLink', ['Unauthorized Parent', second.studentId], 403)
+  await second.student.request('actions/addParentAndLink', ['Self Linked Parent', second.studentId], 403)
 } finally {
   await stop()
   rmSync(directory, { recursive: true, force: true })
