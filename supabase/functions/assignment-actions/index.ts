@@ -179,7 +179,7 @@ serve(async (req: Request) => {
     if (assignment.total_marks !== null && b.marksObtained > assignment.total_marks) {
       return error(400, "validation_error", `marksObtained (${b.marksObtained}) exceeds total marks (${assignment.total_marks}).`);
     }
-    const { error: updateError } = await admin
+    const { data: updated, error: updateError } = await admin
       .from("submissions")
       .update({
         status: "graded",
@@ -187,8 +187,12 @@ serve(async (req: Request) => {
         graded_at: new Date().toISOString(),
         graded_by: user.id,
       })
-      .eq("id", submission.id);
+      .eq("id", submission.id)
+      .in("status", ["submitted", "late"])
+      .select("id")
+      .maybeSingle();
     if (updateError) return error(500, "internal_error", "Could not grade submission.");
+    if (!updated) return error(409, "invalid_state", "The submission changed before the update completed.");
     if (typeof b.comment === "string" && b.comment.trim().length > 0) {
       await admin.from("submission_feedback").insert({
         submission_id: submission.id,
@@ -235,11 +239,15 @@ serve(async (req: Request) => {
     }
     const dueAt = (submission.assignments as { due_at: string | null }).due_at;
     const isLate = dueAt !== null && new Date(dueAt).getTime() < Date.now();
-    const { error: updateError } = await admin
+    const { data: updated, error: updateError } = await admin
       .from("submissions")
       .update({ status: isLate ? "late" : "submitted", submitted_at: new Date().toISOString() })
-      .eq("id", submission.id);
+      .eq("id", submission.id)
+      .eq("status", "draft")
+      .select("id")
+      .maybeSingle();
     if (updateError) return error(500, "internal_error", "Could not submit.");
+    if (!updated) return error(409, "invalid_state", "The submission changed before the update completed.");
     return json(200, { submissionId: submission.id, status: isLate ? "late" : "submitted" });
   }
 

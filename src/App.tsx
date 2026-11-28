@@ -3,7 +3,8 @@ import { useCurrentUser } from './lib/store'
 import { AppShell, HOME, useFocusVisibility } from './components/layout'
 import { Landing, Features, HowItWorks, About, Contact, Privacy, Terms, Login, Register, ForgotPassword, NotFound } from './pages/public'
 import type { Role } from './lib/types'
-import { lazy, useEffect, type ComponentType, type ReactNode } from 'react'
+import { lazy, useEffect, useLayoutEffect, type ComponentType, type ReactNode } from 'react'
+import { syncRouteMetadata } from './lib/route-metadata'
 import { RouteTransition } from './components/ui'
 
 // Keep each role's pages (and the chart library they use) out of public routes.
@@ -81,6 +82,7 @@ const Router = import.meta.env.MODE === 'github-pages' ? HashRouter : BrowserRou
 
 function RouteScroll() {
   const { pathname, hash } = useLocation()
+  useLayoutEffect(() => { syncRouteMetadata(document, pathname) }, [pathname])
   useEffect(() => {
     if (!hash && window.scrollY > 0) window.scrollTo(0, 0)
   }, [pathname, hash])
