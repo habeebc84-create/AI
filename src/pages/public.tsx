@@ -9,8 +9,8 @@ import { useStore, demoAccounts, DEMO_PASSWORD, DEMO_MODE } from '../lib/store'
 function SampleDesk() {
   // Static illustration of the student workspace. Clearly labelled as sample data.
   return (
-    <figure className="relative mx-auto w-full max-w-md lg:max-w-none" aria-label="Sample view of the student workspace">
-      <div className="absolute -inset-x-6 -inset-y-8 -z-10 hidden rounded-[2rem] border sm:block border-slate-200/70 paper-rules dark:border-white/[0.05]" aria-hidden="true" />
+    <figure className="study-desk" aria-label="Sample view of the student workspace">
+      <figcaption className="desk-caption"><BookOpen size={21} aria-hidden="true" />Student desk <span>Sample workspace</span></figcaption>
       <div className="stagger space-y-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_24px_48px_-32px_rgb(28_26_23/0.45)] dark:border-white/[0.08] dark:bg-navy-900">
           <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-royal-600 dark:text-royal-400">Next up · History</p>
@@ -46,7 +46,7 @@ function SampleDesk() {
           </ul>
         </div>
       </div>
-      <figcaption className="mt-4 text-center font-mono text-[10.5px] uppercase tracking-[0.14em] text-slate-500">Sample data · demo workspace</figcaption>
+
     </figure>
   )
 }
@@ -60,14 +60,10 @@ export function Landing() {
   ]
   return (
     <PublicLayout>
-      <section className="mx-auto grid max-w-6xl items-center gap-16 px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:grid-cols-[1.1fr_1fr] lg:gap-20 lg:pb-24">
-        <div className="stagger">
-          <p className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white/70 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-royal-500 dark:bg-royal-400" aria-hidden="true" />Homework portal{DEMO_MODE ? ' · Demo' : ''}
-          </p>
-          <h1 className="mt-6 max-w-xl font-display text-[2.9rem] font-extrabold leading-[0.98] sm:text-6xl lg:text-[4.6rem]">
-            Homework and <em className="font-normal italic text-royal-600 dark:text-royal-400">study</em> planning
-          </h1>
+      <section className="study-cover">
+        <div className="study-intro">
+          <p className="study-kicker">Homework portal{DEMO_MODE ? ' · Demo' : ''}</p>
+          <h1>Homework and study planning</h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-slate-600 dark:text-slate-400">
             See what’s due, set aside time to study, and get feedback when you submit your work.
           </p>
@@ -79,11 +75,11 @@ export function Landing() {
         <SampleDesk />
       </section>
       <section className="border-t border-slate-200 dark:border-white/[0.07]">
-        <div className="stagger mx-auto grid max-w-6xl md:grid-cols-3">
+        <div className="study-tools mx-auto grid max-w-6xl md:grid-cols-3">
           {features.map(({ icon: Icon, title, body }, i) => (
             <div key={title} className={`group px-4 py-10 sm:px-6 ${i > 0 ? 'border-t border-slate-200 md:border-l md:border-t-0 dark:border-white/[0.07]' : ''}`}>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-slate-500">0{i + 1}</span>
+
                 <Icon className="h-5 w-5 text-slate-500 transition-colors duration-300 group-hover:text-royal-600 dark:group-hover:text-royal-400" strokeWidth={1.6} aria-hidden="true" />
               </div>
               <h2 className="mt-8 font-display text-2xl font-semibold">{title}</h2>
@@ -243,7 +239,7 @@ function DemoAccountPicker({ onPick, selected }: { onPick: (email: string) => vo
 
 function PublicHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div>
+    <div className="public-heading">
       <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-royal-600 dark:text-royal-400">{eyebrow}</p>
       <h1 className="mt-3 font-display text-5xl font-extrabold leading-[1] sm:text-6xl">{title}</h1>
     </div>
@@ -252,13 +248,13 @@ function PublicHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
 
 function AuthFrame({ title, sub, children, aside }: { title: string; sub?: string; children: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-20">
+    <div className="auth-spread">
       <div>
         <h1 className="font-display text-4xl font-extrabold leading-[1.02] sm:text-5xl">{title}</h1>
         {sub && <p className="mt-3 text-[15px] text-slate-600 dark:text-slate-400">{sub}</p>}
         <div className="mt-8">{children}</div>
       </div>
-      {aside && <div className="lg:border-l lg:border-slate-200 lg:pl-20 lg:dark:border-white/[0.07]">{aside}</div>}
+      {aside && <div className="auth-reference">{aside}</div>}
     </div>
   )
 }

@@ -45,7 +45,7 @@ export function useTheme() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
     // Keep the browser chrome colour in step with the chosen theme, not just the OS setting.
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#0D1713' : '#F2F6F0'))
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#15131E' : '#F8F5ED'))
     try { localStorage.setItem('focused-ai-theme', dark ? 'dark' : 'light') } catch { /* Storage may be blocked in private browsing. */ }
   }, [dark])
   return { dark, toggle: () => setDark((d) => !d) }

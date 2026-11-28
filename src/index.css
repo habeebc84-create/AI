@@ -6,7 +6,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* FocusEd's new "Field Notes" theme: botanical green, chalk paper and brass. */
+/* FocusEd's new "Field Notes" theme: violet ink, warm paper and brass. */
 @theme {
   --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
@@ -15,21 +15,21 @@
   /* Chalk and green-ink neutral ramp */
   --color-slate-50: #F5F8F4;
   --color-slate-100: #EAF0E9;
-  --color-slate-200: #D8E2D8;
+  --color-slate-200: #DCD8D2;
   --color-slate-300: #B9C9BD;
   --color-slate-400: #8CA094;
-  --color-slate-500: #5F7568;
-  --color-slate-600: #465C50;
+  --color-slate-500: #68616C;
+  --color-slate-600: #524F5B;
   --color-slate-700: #30463B;
   --color-slate-800: #22372E;
-  --color-slate-900: #172A22;
+  --color-slate-900: #27243B;
   --color-slate-950: #0D1C16;
 
   /* Primary: evergreen */
-  --color-royal-400: #72D1AA;
-  --color-royal-500: #237B5D;
-  --color-royal-600: #17664C;
-  --color-royal-700: #12513D;
+  --color-royal-400: #C5BAFF;
+  --color-royal-500: #6754A5;
+  --color-royal-600: #53438E;
+  --color-royal-700: #423474;
 
   /* Secondary: soft sage for charts and supporting accents */
   --color-cyan-50: #ECF5EF;
@@ -43,10 +43,10 @@
   --color-cyan-accent: #538F6B;
 
   /* Ink surfaces for dark mode (replaces navy) */
-  --color-navy-950: #0D1713;
-  --color-navy-900: #14221B;
-  --color-navy-800: #203329;
-  --color-mist: #F2F6F0;
+  --color-navy-950: #15131E;
+  --color-navy-900: #211E2D;
+  --color-navy-800: #302B40;
+  --color-mist: #F8F5ED;
 
   --radius-xl: 0.625rem;
   --radius-2xl: 0.875rem;
@@ -59,20 +59,20 @@
 
 :root {
   color-scheme: light;
-  --paper: #F2F6F0;
+  --paper: #F8F5ED;
   --surface: #FFFFFF;
-  --ink: #172A22;
-  --rule: #D8E2D8;
-  --accent: #17664C;
+  --ink: #27243B;
+  --rule: #DCD8D2;
+  --accent: #53438E;
   --highlight: #F1D18A;
 }
 html.dark {
   color-scheme: dark;
-  --paper: #0D1713;
-  --surface: #14221B;
+  --paper: #15131E;
+  --surface: #211E2D;
   --ink: #ECF3EB;
   --rule: #2B4034;
-  --accent: #72D1AA;
+  --accent: #C5BAFF;
   --highlight: #66552D;
 }
 
@@ -188,7 +188,7 @@ select:not([multiple]):not([size]) {
   .dark .text-slate-400:not([class*="dark:text-"]) { color: #A6B8AA; }
   .dark .text-royal-500:not([class*="dark:text-"]),
   .dark .text-royal-600:not([class*="dark:text-"]),
-  .dark .hover\:text-royal-500:not([class*="dark:hover:text-"]):hover { color: #72D1AA; }
+  .dark .hover\:text-royal-500:not([class*="dark:hover:text-"]):hover { color: #C5BAFF; }
 }
 
 /* Web interface guideline polish */
@@ -227,10 +227,10 @@ dialog { overscroll-behavior: contain; }
 /* App-wide library navigation: a stable evergreen rail in both themes. */
 .workspace-sidebar {
   color: #ECF3EB;
-  background: #17372B;
+  background: #32294E;
   border-color: rgb(255 255 255 / 0.1);
 }
-.dark .workspace-sidebar { background: #10251C; }
+.dark .workspace-sidebar { background: #231D36; }
 .workspace-sidebar .text-slate-500,
 .workspace-sidebar .text-slate-600 { color: #B4C8BA; }
 .workspace-sidebar .text-slate-900,
@@ -246,11 +246,70 @@ dialog { overscroll-behavior: contain; }
 .workspace-sidebar button:hover,
 .workspace-sidebar a:not([aria-current="page"]):hover { background-color: rgb(255 255 255 / 0.08); }
 .workspace-sidebar .workspace-logo-mark rect { fill: #ECF3EB; }
-.workspace-sidebar .workspace-logo-mark path { stroke: #17372B; }
-.dark .workspace-sidebar .workspace-logo-mark path { stroke: #10251C; }
+.workspace-sidebar .workspace-logo-mark path { stroke: #32294E; }
+.dark .workspace-sidebar .workspace-logo-mark path { stroke: #231D36; }
 .workspace-sidebar .workspace-logo-mark circle { fill: #F1D18A; }
 
 /* Brass is reserved for high-value interactions and completion details. */
 .theme-brass { color: #76520D; }
 .dark .theme-brass { color: #F1D18A; }
 ::view-transition-new(public-header) { animation: none; }
+
+
+.study-cover, .auth-spread {
+  width: min(74rem, 100%);
+  margin-inline: auto;
+  padding: clamp(2rem, 5vw, 5rem) clamp(1rem, 4vw, 3rem);
+  display: grid;
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+}
+.study-intro h1 {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 6.4rem);
+  max-width: 11ch;
+  line-height: .97;
+  letter-spacing: -.055em;
+  font-weight: 620;
+}
+.study-kicker {
+  display: inline-block;
+  margin-bottom: 1.6rem;
+  padding-bottom: .45rem;
+  border-bottom: 3px solid var(--accent);
+  font-family: var(--font-mono);
+  font-size: .82rem;
+}
+.study-desk {
+  min-width: 0;
+  background: #32294e;
+  border-radius: .5rem;
+  border-inline-start: .65rem solid #c5b5e9;
+  padding: clamp(.8rem, 2.8vw, 2rem);
+}
+.desk-caption {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+  color: #fff;
+  font: 600 1.45rem var(--font-display);
+  padding-bottom: 1.1rem;
+}
+.desk-caption span { margin-left: auto; color: #e4dcf3; font: .74rem var(--font-mono); }
+.study-tools { border-bottom: 1px solid var(--rule); }
+.study-tools h2 { margin-top: 1rem; }
+.study-tools svg { color: var(--accent); }
+.public-heading { border-inline-start: .35rem solid var(--accent); padding-inline-start: 1.3rem; }
+.auth-spread { align-items: start; }
+.auth-reference { background: var(--surface); border-top: .35rem solid var(--accent); padding: clamp(1.1rem, 3vw, 2.4rem); }
+nav[aria-label="Public navigation"] a[aria-current="page"] { box-shadow: inset 0 -2px var(--accent); }
+@media (min-width: 58rem) {
+  .study-cover { grid-template-columns: 1fr 1fr; }
+  .auth-spread { grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr); }
+}
+@media (max-width: 36rem) {
+  .study-desk .grid-cols-5 { grid-template-columns: 1fr 1fr; }
+  .study-desk .grid-cols-5 > div { grid-column: auto; padding: .8rem; }
+  .study-desk .grid-cols-5 svg { display: none; }
+}
