@@ -1,9 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    {
+      "source": "/:page(features|how-it-works|about|contact|login|register|privacy|terms)",
+      "destination": "/route-pages/:page.html"
+    },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/route-pages/fallback.html"
     }
   ],
   "headers": [

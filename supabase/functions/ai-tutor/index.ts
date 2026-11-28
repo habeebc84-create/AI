@@ -377,6 +377,7 @@ serve(async (req: Request) => {
     .from("ai_messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
+    .or("role.eq.user,and(role.eq.assistant,provider_generated.eq.true)")
     .order("created_at", { ascending: false })
     .limit(MAX_HISTORY_MESSAGES);
   const messages: ChatMsg[] = [
@@ -433,6 +434,7 @@ serve(async (req: Request) => {
     {
       conversation_id: conversationId,
       role: "assistant",
+      provider_generated: true,
       content: result.reply,
       tokens_used: result.tokensInput + result.tokensOutput,
     },
